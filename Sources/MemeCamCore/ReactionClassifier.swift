@@ -51,6 +51,8 @@ public struct ReactionClassifier: Sendable {
     public var isCalibrated: Bool { calibration != .none }
     /// 0...1 while collecting calibration frames.
     public var calibrationProgress: Double { collecting ? Double(samples.count) / Double(Self.calibrationFrames) : 1 }
+    /// True while a user-requested calibration is measuring.
+    public var isCalibratingManually: Bool { collectingManual }
 
     private static let calibrationFrames = 15
     private var samples: [FaceMetrics] = []

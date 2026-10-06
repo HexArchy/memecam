@@ -29,6 +29,11 @@ struct PipelineStatus: Sendable {
     /// Guided accuracy test: what the user should show now, and overall progress 0...1.
     var guidedPrompt: Reaction?
     var guidedProgress: Double = 0
+    /// Neutral-face calibration: progress 0...1 while measuring, and the current state.
+    var calibrationProgress: Double = 1
+    var calibration: ReactionClassifier.Calibration = .none
+    /// True when a face is currently visible (for onboarding guidance).
+    var faceVisible = false
 }
 
 /// camera → (Vision on its own queue) → classifier → meme → compositor → sinks.
@@ -296,8 +301,12 @@ final class MemePipeline: @unchecked Sendable {
         lastStatusTime = now
         let fps = frameTimes.count > 1 ? Double(frameTimes.count - 1) / (frameTimes.last! - frameTimes.first!) : 0
         var status = state.withLock { s in
-            PipelineStatus(reaction: s.reaction, confidence: s.confidence, meme: s.meme,
-                           metrics: s.metrics, outputFPS: force ? 0 : fps, inferenceMs: s.inferenceMs)
+            var st = PipelineStatus(reaction: s.reaction, confidence: s.confidence, meme: s.meme,
+                                    metrics: s.metrics, outputFPS: force ? 0 : fps, inferenceMs: s.inferenceMs)
+            st.calibrationProgress = s.calibrateNext ? 0 : s.classifier.calibrationProgress
+            st.calibration = s.classifier.calibration
+            st.faceVisible = s.metrics != nil
+            return st
         }
         let guided: (Reaction, Double)? = state.withLock { s in
             guard let g = s.guided, let step = g.script.step(at: now - g.start) else { return nil }
