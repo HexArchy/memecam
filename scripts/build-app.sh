@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Builds build/MemeCam.app (+ embedded CMIO camera extension when signing material exists).
 #
-# Usage: scripts/build-app.sh [--install] [--run]
+# Usage: scripts/build-app.sh [--install] [--run] [--release [path/to/appstoreconnect.env]]
 #   --install  copy to /Applications/MemeCam.app (quits a running MemeCam first)
 #   --run      open the app afterwards (the installed copy when --install is given)
+#   --release  Developer ID signing (~/.memecam-signing/release.env, from setup-signing.py
+#              --distribution), then build/MemeCam.dmg, notarize it with the ASC API key from
+#              the given env file (default ~/Workspace/vps/porovnu/secrets/appstoreconnect.env)
+#              and staple the ticket. The DMG then opens on any Mac.
 #
 # Signing material comes from `uv run --script scripts/setup-signing.py` and lives in
 # ~/.memecam-signing/{signing.env, MemeCam.provisionprofile, CameraExtension.provisionprofile}.
@@ -27,10 +31,14 @@ INSTALL_PATH="/Applications/MemeCam.app"
 
 INSTALL=0
 RUN=0
+RELEASE=0
+ASC_ENV="$HOME/Workspace/vps/porovnu/secrets/appstoreconnect.env"
 for arg in "$@"; do
   case "$arg" in
     --install) INSTALL=1 ;;
     --run) RUN=1 ;;
+    --release) RELEASE=1 ;;
+    *.env) ASC_ENV="$arg" ;;
     -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
@@ -98,15 +106,24 @@ PLIST
 plutil -lint -s "$APP/Contents/Info.plist"
 
 # ---------------------------------------------------------------------------------------------
-read_env() { grep -E "^$1=" "$SIGN_DIR/signing.env" | head -1 | cut -d= -f2- | tr -d '"' ; }
+SIGN_ENV="$SIGN_DIR/signing.env"
+PROFILE_SUFFIX=""
+TIMESTAMP="--timestamp=none"
+if [[ $RELEASE == 1 ]]; then
+  SIGN_ENV="$SIGN_DIR/release.env"
+  PROFILE_SUFFIX="-DeveloperID"
+  TIMESTAMP="--timestamp"   # notarization requires a secure timestamp
+  [[ -f "$SIGN_ENV" ]] || die "$SIGN_ENV missing — run: uv run --script scripts/setup-signing.py --distribution"
+fi
+read_env() { grep -E "^$1=" "$SIGN_ENV" | head -1 | cut -d= -f2- | tr -d '"' ; }
 profile_value() { security cms -D -i "$1" 2>/dev/null | plutil -extract "$2" raw -o - - 2>/dev/null || true; }
 
 SIGNED=0
-if [[ -f "$SIGN_DIR/signing.env" ]]; then
+if [[ -f "$SIGN_ENV" ]]; then
   TEAM_ID="$(read_env TEAM_ID)"
   SIGN_IDENTITY="$(read_env SIGN_IDENTITY)"
-  APP_PROFILE="$SIGN_DIR/MemeCam.provisionprofile"
-  EXT_PROFILE="$SIGN_DIR/CameraExtension.provisionprofile"
+  APP_PROFILE="$SIGN_DIR/MemeCam$PROFILE_SUFFIX.provisionprofile"
+  EXT_PROFILE="$SIGN_DIR/CameraExtension$PROFILE_SUFFIX.provisionprofile"
   [[ -n "$TEAM_ID" && -n "$SIGN_IDENTITY" ]] || die "$SIGN_DIR/signing.env must define TEAM_ID and SIGN_IDENTITY"
   [[ -f "$APP_PROFILE" && -f "$EXT_PROFILE" ]] || die "provisioning profiles missing in $SIGN_DIR (re-run scripts/setup-signing.py)"
   security find-identity -v -p codesigning | grep -q "$SIGN_IDENTITY" \
@@ -144,9 +161,9 @@ ENT
   plutil -lint -s "$GEN_DIR/CameraExtension.entitlements" "$GEN_DIR/MemeCam.entitlements"
 
   step "Signing (inside-out, hardened runtime)"
-  codesign --force --options runtime --timestamp=none -s "$SIGN_IDENTITY" \
+  codesign --force --options runtime $TIMESTAMP -s "$SIGN_IDENTITY" \
     --entitlements "$GEN_DIR/CameraExtension.entitlements" "$EXT_BUNDLE"
-  codesign --force --options runtime --timestamp=none -s "$SIGN_IDENTITY" \
+  codesign --force --options runtime $TIMESTAMP -s "$SIGN_IDENTITY" \
     --entitlements "$GEN_DIR/MemeCam.entitlements" "$APP"
   SIGNED=1
 else
@@ -183,6 +200,37 @@ MSG
 fi
 
 # ---------------------------------------------------------------------------------------------
+if [[ $RELEASE == 1 ]]; then
+  [[ $SIGNED == 1 ]] || die "release build was not signed"
+  DMG="$ROOT/build/MemeCam.dmg"
+  step "Creating $DMG"
+  STAGE="$(mktemp -d)"
+  ditto "$APP" "$STAGE/MemeCam.app"
+  ln -s /Applications "$STAGE/Applications"
+  rm -f "$DMG"
+  hdiutil create -volname MemeCam -srcfolder "$STAGE" -fs HFS+ -format UDZO -imagekey zlib-level=9 -ov "$DMG" >/dev/null
+  rm -rf "$STAGE"
+  codesign --force --timestamp -s "$SIGN_IDENTITY" "$DMG"
+
+  step "Notarizing (takes a few minutes)"
+  asc() { grep -E "^$1=" "$ASC_ENV" | head -1 | cut -d= -f2- | tr -d '"' ; }
+  KEY_ID="$(asc ASC_KEY_ID)"; ISSUER="$(asc ASC_ISSUER_ID)"
+  KEY_FILE="$(asc ASC_KEY_PATH)"; KEY_FILE="${KEY_FILE/#\~/$HOME}"
+  [[ -f "$KEY_FILE" ]] || KEY_FILE="$(dirname "$ASC_ENV")/AuthKey_$KEY_ID.p8"
+  [[ -n "$KEY_ID" && -n "$ISSUER" && -f "$KEY_FILE" ]] || die "ASC API key not found via $ASC_ENV"
+  OUT_JSON="$(xcrun notarytool submit "$DMG" --key "$KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER" \
+              --wait --timeout 45m --output-format json)" || true
+  STATUS="$(printf '%s' "$OUT_JSON" | plutil -extract status raw -o - - 2>/dev/null || echo unknown)"
+  SUB_ID="$(printf '%s' "$OUT_JSON" | plutil -extract id raw -o - - 2>/dev/null || echo)"
+  if [[ "$STATUS" != "Accepted" ]]; then
+    [[ -n "$SUB_ID" ]] && xcrun notarytool log "$SUB_ID" --key "$KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER" || true
+    die "notarization status: $STATUS"
+  fi
+  xcrun stapler staple "$DMG"
+  spctl -a -t open --context context:primary-signature -vv "$DMG" 2>&1 | sed 's/^/  /'
+  printf '\nRelease DMG: %s (notarized, runs on any Mac)\n' "$DMG"
+fi
+
 if [[ $INSTALL == 1 ]]; then
   step "Installing to $INSTALL_PATH"
   if pgrep -x MemeCam >/dev/null; then

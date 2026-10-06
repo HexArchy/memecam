@@ -12,7 +12,9 @@ login keychain), and two macOS development provisioning profiles.
 Output: ~/.memecam-signing/{signing.env, MemeCam.provisionprofile, CameraExtension.provisionprofile}
 Secrets are never printed.
 
-Usage: scripts/setup-signing.py [path/to/appstoreconnect.env] [--revoke <serial>]
+Usage: scripts/setup-signing.py [path/to/appstoreconnect.env] [--revoke <serial>] [--distribution]
+  --distribution  Developer ID certificate + MAC_APP_DIRECT profiles (release.env) for
+                  notarized builds that run on any Mac (scripts/build-app.sh --release).
 """
 
 import base64
@@ -37,6 +39,7 @@ EXT_ID = "com.hexarch.memecam.camera-extension"
 OUT = pathlib.Path.home() / ".memecam-signing"
 API = "https://api.appstoreconnect.apple.com/v1"
 WWDR_G3 = "https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer"
+DEVID_G2 = "https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer"
 
 
 def load_env(path: pathlib.Path) -> dict[str, str]:
@@ -124,7 +127,7 @@ def local_identities() -> dict[str, str]:
     return {m.group(1): m.group(2) for m in re.finditer(r"\)\s+([0-9A-F]{40})\s+\"(.+?)\"", out)}
 
 
-def import_identity(key, cert: x509.Certificate):
+def import_identity(key, cert: x509.Certificate, ca_url: str = WWDR_G3):
     """Imports key + cert into the login keychain via a throwaway-password PKCS#12.
     macOS `security` only understands legacy PKCS#12 encryption (3DES + SHA-1 MAC)."""
     password = base64.b64encode(os.urandom(18)).decode()
@@ -142,15 +145,16 @@ def import_identity(key, cert: x509.Certificate):
                            capture_output=True, text=True)
         if r.returncode != 0 and "already exists" not in r.stderr:
             sys.exit(f"security import failed: {r.stderr.strip()}")
-        wwdr = pathlib.Path(tmp) / "wwdr.cer"
-        wwdr.write_bytes(requests.get(WWDR_G3, timeout=60).content)
-        subprocess.run(["security", "import", str(wwdr)], capture_output=True)  # ok if already present
+        ca = pathlib.Path(tmp) / "ca.cer"
+        ca.write_bytes(requests.get(ca_url, timeout=60).content)
+        subprocess.run(["security", "import", str(ca)], capture_output=True)  # ok if already present
 
 
-def ensure_certificate(asc: ASC) -> tuple[str, str]:
+def ensure_certificate(asc: ASC, types: tuple[str, ...] = ("DEVELOPMENT",), label: str = "Apple Development",
+                       pending_name: str = "pending-key.pem", ca_url: str = WWDR_G3) -> tuple[str, str]:
     """Returns (ASC certificate id, SHA-1). Reuses a cert whose key is already local."""
     local = local_identities()
-    certs = asc.call("GET", "/certificates?filter[certificateType]=DEVELOPMENT&limit=200")["data"]
+    certs = asc.call("GET", f"/certificates?filter[certificateType]={','.join(types)}&limit=200")["data"]
     parsed = [(c["id"], x509.load_der_x509_certificate(base64.b64decode(c["attributes"]["certificateContent"])))
               for c in certs]
     for cid, cert in parsed:
@@ -160,14 +164,14 @@ def ensure_certificate(asc: ASC) -> tuple[str, str]:
             return cid, sha1
 
     # A key from an interrupted run: finish importing its certificate instead of minting a new one.
-    pending = OUT / "pending-key.pem"
+    pending = OUT / pending_name
     if pending.exists():
         key = serialization.load_pem_private_key(pending.read_bytes(), password=None)
         pub = key.public_key().public_numbers()
         for cid, cert in parsed:
             if cert.public_key().public_numbers() == pub:
                 step("finishing import of certificate from previous run")
-                import_identity(key, cert)
+                import_identity(key, cert, ca_url)
                 pending.unlink()
                 return cid, cert.fingerprint(hashes.SHA1()).hex().upper()
     else:
@@ -178,16 +182,19 @@ def ensure_certificate(asc: ASC) -> tuple[str, str]:
                                               serialization.NoEncryption()))
         pending.chmod(0o600)
 
-    step("creating Apple Development certificate")
+    step(f"creating {label} certificate")
     csr = (x509.CertificateSigningRequestBuilder()
            .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "MemeCam Dev"),
                                     x509.NameAttribute(NameOID.EMAIL_ADDRESS, "dev@hexarch.local")]))
            .sign(key, hashes.SHA256()))
     csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode()
-    r = asc.raw("POST", "/certificates", json={"data": {"type": "certificates", "attributes": {
-        "certificateType": "DEVELOPMENT", "csrContent": csr_pem}}})
+    for cert_type in types:
+        r = asc.raw("POST", "/certificates", json={"data": {"type": "certificates", "attributes": {
+            "certificateType": cert_type, "csrContent": csr_pem}}})
+        if r.status_code not in (400, 422):  # unsupported type → try the next one
+            break
     if r.status_code == 409:
-        print("\nApple allows only one current Development certificate on this account:", file=sys.stderr)
+        print(f"\nApple's limit for {label} certificates is reached on this account:", file=sys.stderr)
         for c in certs:
             a = c["attributes"]
             print(f"  serial {a['serialNumber']}  “{a.get('displayName') or a.get('name')}”  "
@@ -198,23 +205,24 @@ def ensure_certificate(asc: ASC) -> tuple[str, str]:
         sys.exit(f"ASC POST /certificates -> {r.status_code}: {r.text[:300]}")
     data = r.json()["data"]
     cert = x509.load_der_x509_certificate(base64.b64decode(data["attributes"]["certificateContent"]))
-    import_identity(key, cert)
+    import_identity(key, cert, ca_url)
     pending.unlink()
     return data["id"], cert.fingerprint(hashes.SHA1()).hex().upper()
 
 
-def ensure_profile(asc: ASC, name: str, bundle_id: str, cert_id: str, device_id: str) -> bytes:
+def ensure_profile(asc: ASC, name: str, bundle_id: str, cert_id: str, device_id: str | None,
+                   profile_type: str = "MAC_APP_DEVELOPMENT") -> bytes:
     for p in asc.call("GET", f"/profiles?filter[name]={requests.utils.quote(name)}")["data"]:
         step(f"  replacing old profile “{name}”")
         asc.call("DELETE", f"/profiles/{p['id']}")
     step(f"creating profile “{name}”")
     data = asc.call("POST", "/profiles", json={"data": {
         "type": "profiles",
-        "attributes": {"name": name, "profileType": "MAC_APP_DEVELOPMENT"},
+        "attributes": {"name": name, "profileType": profile_type},
         "relationships": {
             "bundleId": {"data": {"type": "bundleIds", "id": bundle_id}},
             "certificates": {"data": [{"type": "certificates", "id": cert_id}]},
-            "devices": {"data": [{"type": "devices", "id": device_id}]},
+            **({"devices": {"data": [{"type": "devices", "id": device_id}]}} if device_id else {}),
         }}})["data"]
     return base64.b64decode(data["attributes"]["profileContent"])
 
@@ -231,6 +239,9 @@ def revoke(asc: ASC, serial: str):
 def main():
     args = sys.argv[1:]
     revoke_serial = None
+    distribution = "--distribution" in args
+    if distribution:
+        args.remove("--distribution")
     if "--revoke" in args:
         i = args.index("--revoke")
         revoke_serial = args[i + 1]
@@ -250,9 +261,23 @@ def main():
 
     if revoke_serial:
         revoke(asc, revoke_serial)
-    device = ensure_device(asc)
     app = ensure_bundle(asc, APP_ID, "MemeCam", ["SYSTEM_EXTENSION_INSTALL"])
     ext = ensure_bundle(asc, EXT_ID, "MemeCam Camera Extension", [])
+
+    if distribution:
+        # Developer ID: runs on any Mac after notarization; profiles have no device list.
+        cert_id, sha1 = ensure_certificate(asc, ("DEVELOPER_ID_APPLICATION_G2", "DEVELOPER_ID_APPLICATION"),
+                                           "Developer ID Application", "pending-devid-key.pem", DEVID_G2)
+        OUT.mkdir(mode=0o700, exist_ok=True)
+        (OUT / "MemeCam-DeveloperID.provisionprofile").write_bytes(
+            ensure_profile(asc, "MemeCam Developer ID", app, cert_id, None, "MAC_APP_DIRECT"))
+        (OUT / "CameraExtension-DeveloperID.provisionprofile").write_bytes(
+            ensure_profile(asc, "MemeCam Camera Extension Developer ID", ext, cert_id, None, "MAC_APP_DIRECT"))
+        (OUT / "release.env").write_text(f"TEAM_ID={team}\nSIGN_IDENTITY={sha1}\n")
+        step(f"done → {OUT}/release.env  (Developer ID {sha1[:8]}…)")
+        return
+
+    device = ensure_device(asc)
     cert_id, sha1 = ensure_certificate(asc)
 
     OUT.mkdir(mode=0o700, exist_ok=True)
