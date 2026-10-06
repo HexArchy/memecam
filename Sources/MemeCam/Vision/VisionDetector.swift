@@ -19,6 +19,12 @@ final class VisionDetector: @unchecked Sendable {
         r.constellation = .constellation76Points // explicit: brows/lips need the dense layout
         return r
     }()
+    /// Landmark observations don't carry yaw/pitch; rectangles revision 3 does.
+    private let poseRequest: VNDetectFaceRectanglesRequest = {
+        let r = VNDetectFaceRectanglesRequest()
+        r.revision = VNDetectFaceRectanglesRequestRevision3
+        return r
+    }()
     private let handRequest: VNDetectHumanHandPoseRequest = {
         let r = VNDetectHumanHandPoseRequest()
         r.maximumHandCount = 2
@@ -31,7 +37,7 @@ final class VisionDetector: @unchecked Sendable {
 
     var detectHands = true
     /// Minimum per-joint confidence; Vision reports low confidence for occluded joints.
-    var jointConfidence: Float = 0.3
+    var jointConfidence: Float = 0.15
 
     func detect(_ pixelBuffer: CVPixelBuffer, timestamp: TimeInterval) -> FrameObservation {
         frameIndex &+= 1
@@ -40,7 +46,7 @@ final class VisionDetector: @unchecked Sendable {
         let aspect = width / height
 
         let runHands = detectHands && (handsVisible || frameIndex % 2 == 0)
-        let requests: [VNRequest] = runHands ? [faceRequest, handRequest] : [faceRequest]
+        let requests: [VNRequest] = runHands ? [poseRequest, faceRequest, handRequest] : [poseRequest, faceRequest]
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up)
         do {
             try handler.perform(requests)
@@ -52,7 +58,18 @@ final class VisionDetector: @unchecked Sendable {
         let faceObs = (faceRequest.results ?? []).max {
             $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height
         }
-        let face = faceObs.flatMap { Self.landmarks($0, imageSize: CGSize(width: width, height: height)) }
+        // Pose from the rectangles result that best overlaps the chosen face.
+        let pose = faceObs.flatMap { f in
+            (poseRequest.results ?? []).max { a, b in
+                a.boundingBox.intersection(f.boundingBox).width < b.boundingBox.intersection(f.boundingBox).width
+            }
+        }
+        var face = faceObs.flatMap { Self.landmarks($0, imageSize: CGSize(width: width, height: height)) }
+        if let pose, var f = face {
+            if let yaw = pose.yaw?.doubleValue { f.yaw = yaw }
+            if let pitch = pose.pitch?.doubleValue { f.pitch = pitch }
+            face = f
+        }
 
         if runHands {
             lastHands = (handRequest.results ?? []).compactMap { hand($0, aspect: aspect) }
@@ -103,7 +120,7 @@ final class VisionDetector: @unchecked Sendable {
                 joints[j] = CGPoint(x: p.location.x * aspect, y: p.location.y)
             }
         }
-        guard joints.count >= 12 else { return nil }
+        guard joints.count >= 8 else { return nil }
         return HandPose(joints: joints, confidence: Double(obs.confidence))
     }
 }

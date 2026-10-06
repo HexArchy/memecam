@@ -168,21 +168,37 @@ public struct ReactionClassifier: Sendable {
             }
         }
 
+        // Vision often merges a two-hand heart into one "hand" with the thumb pointing down
+        // and index/middle bent in an arc (measured: reach ≈1.1 vs ≈0.7 for a thumbs-down fist).
+        if let (hand, _) = shaped.first(where: { $0.1.looksLikeHalfHeart }),
+           faceBox.map({ hand.center.y < $0.midY }) ?? true {
+            return (.heart, 0.8)
+        }
+
         if let face = faceBox {
             for (hand, shape) in shaped {
                 let hb = hand.boundingBox
                 let overlap = hb.intersection(face)
                 let coverage = overlap.isNull ? 0 : (overlap.width * overlap.height) / max(face.width * face.height, 1e-6)
-                // Hand over the upper face (eyes/forehead) => facepalm.
-                if coverage > 0.06, face.insetBy(dx: face.width * 0.1, dy: 0).contains(hand.center),
+                // Open-ish hand over the upper face (eyes/forehead) => facepalm. A fist held in
+                // front of the face is not a facepalm (it was the #2 fist confusion).
+                if shape.extendedCount >= 2, coverage > 0.06,
+                   face.insetBy(dx: face.width * 0.1, dy: 0).contains(hand.center),
                    hand.center.y > face.minY + face.height * 0.4 {
                     return (.facepalm, min(1, 0.5 + Double(coverage) * 2))
                 }
-                // Hand at the chin, not an open palm => thinking.
-                let chin = CGRect(x: face.minX - face.width * 0.15, y: face.minY - face.height * 0.35,
-                                  width: face.width * 1.3, height: face.height * 0.6)
-                if shape.extendedCount <= 2, chin.contains(hand[.indexTip] ?? hand.center) {
+                // Hand resting at the chin => thinking. People do it with a fist, a finger or a
+                // flat hand (recorded: 3 fingers extended), so only a full raised palm is excluded.
+                let chin = CGRect(x: face.minX - face.width * 0.2, y: face.minY - face.height * 0.35,
+                                  width: face.width * 1.4, height: face.height * 0.6)
+                if shape.extendedCount <= 3, chin.contains(hand.center) {
                     return (.thinking, 0.8)
+                }
+                // One open palm raised to the top of the head => hands up (Vision frequently
+                // reports only one of two raised hands).
+                if shape.extendedCount >= 4, hand.center.y > face.minY + face.height * 0.9,
+                   coverage < 0.15 {
+                    return (.handsUp, 0.75)
                 }
             }
         }
@@ -197,13 +213,13 @@ public struct ReactionClassifier: Sendable {
     // MARK: - Expressions
 
     /// Scores are normalised: 1.0 == "just at threshold".
-    struct ExpressionScores {
-        var open = 0.0, smile = 0.0, eyesClosed = 0.0, brows = 0.0, sad = 0.0, tilt = 0.0
+    public struct ExpressionScores: Sendable {
+        public var open = 0.0, smile = 0.0, eyesClosed = 0.0, brows = 0.0, sad = 0.0, tilt = 0.0
         /// FACS AU1 (inner brow raiser) and AU4 (brow lowerer) intensities, 1 = threshold.
-        var au1 = 0.0, au4 = 0.0
+        public var au1 = 0.0, au4 = 0.0
     }
 
-    func scores(_ m: FaceMetrics) -> ExpressionScores {
+    public func scores(_ m: FaceMetrics) -> ExpressionScores {
         let b = baseline
         let k = 1 / max(config.sensitivity, 0.1) // >1 means stricter thresholds
         let widthRatio = m.mouthWidth / max(b.mouthWidth, 1e-3)
@@ -212,7 +228,7 @@ public struct ReactionClassifier: Sendable {
         s.open = (m.mouthOpen - b.mouthOpen) / (0.25 * k)
         s.smile = max((widthRatio - 1) / (0.14 * k), (m.cornerLift - b.cornerLift) / (0.06 * k))
         s.eyesClosed = (1 - eyeRatio) / (0.55 * min(k, 1.4))
-        s.brows = (m.browRaise - b.browRaise) / (0.10 * k)
+        s.brows = (m.browRaise - b.browRaise) / (0.075 * k)
         s.au1 = (m.innerBrowRaise - b.innerBrowRaise) / (0.05 * k)
         s.au4 = (1 - m.browGap / max(b.browGap, 1e-3)) / (0.10 * k)
         // Sadness = lip-corner depressor (AU15) with AU1 or AU4 — corners alone are too often
@@ -246,7 +262,9 @@ public struct ReactionClassifier: Sendable {
         candidates.append((.headTilt, s.tilt))
 
         // Hysteresis: the reaction already shown needs only 80% of its threshold to stay.
+        // Closed eyes beat a smile: squeezing the eyes lifts the cheeks and mouth corners.
         let best = candidates
+            .map { r, v in (r, r == .eyesClosed && v >= 1 ? v * 1.5 : v) }
             .map { r, v in (r, r == lastExpression ? v * 1.25 : v) }
             .filter { $0.1 >= 1 }
             .max { $0.1 < $1.1 }

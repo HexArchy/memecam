@@ -94,12 +94,9 @@ private struct AccuracySection: View {
 
     var body: some View {
         Section {
-            if model.isGuidedSessionRunning, let prompt = model.status.guidedPrompt {
-                LabeledContent("Now show") {
-                    Label(prompt.title, systemImage: prompt.displaySymbol)
-                        .font(.headline)
-                }
-                ProgressView(value: model.status.guidedProgress)
+            if let g = model.status.guided {
+                LabeledContent("Step") { Text("\(g.stepIndex + 1) of \(g.stepCount)").monospacedDigit() }
+                ProgressView(value: g.overallProgress)
                 Button("Cancel Test", role: .cancel) { model.cancelAccuracyTest() }
             } else {
                 Button("Run Accuracy Test…", systemImage: "checklist") { model.startAccuracyTest() }
@@ -116,7 +113,7 @@ private struct AccuracySection: View {
         } header: {
             Label("Accuracy", systemImage: "scope")
         } footer: {
-            Text("Follow the prompts in the preview (about 90 s). MemeCam records what it sees and scores itself on your face.")
+            Text("About 3 minutes. Each reaction: get ready, then hold it. Space pauses, → skips, ← redoes. MemeCam scores itself on your face.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }

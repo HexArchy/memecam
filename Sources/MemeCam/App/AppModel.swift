@@ -43,9 +43,12 @@ final class AppModel {
     /// Report of the last guided accuracy test (multi-line text).
     private(set) var lastEvaluation: String?
     private(set) var lastRecordingURL: URL?
-    var isGuidedSessionRunning: Bool { status.guidedPrompt != nil }
+    /// The test just finished: the stage shows the result card until dismissed.
+    var showEvaluationResult = false
+    var isGuidedSessionRunning: Bool { status.guided != nil }
 
-    /// ~90 s guided test: shows every reaction prompt, records, then scores the detector on you.
+    /// ~3 min interactive test: prompts every reaction (get ready → hold), records, then scores
+    /// the detector on this user.
     func startAccuracyTest() {
         if cameraState != .running { start() }
         lastEvaluation = nil
@@ -53,6 +56,9 @@ final class AppModel {
     }
 
     func cancelAccuracyTest() { pipeline.cancelGuidedSession() }
+    func togglePauseAccuracyTest() { pipeline.toggleGuidedPause() }
+    func skipAccuracyStep() { pipeline.skipGuidedStep() }
+    func redoAccuracyStep() { pipeline.redoGuidedStep() }
 
     func revealRecordings() {
         let dir = Self.recordingsDirectory
@@ -135,6 +141,7 @@ final class AppModel {
             Task { @MainActor in
                 self?.lastRecordingURL = url
                 self?.lastEvaluation = report
+                self?.showEvaluationResult = true
             }
         }
         refreshCameras()

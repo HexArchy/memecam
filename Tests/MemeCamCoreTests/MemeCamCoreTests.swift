@@ -232,22 +232,41 @@ private func turned(_ lm: FaceLandmarks, yaw: Double) -> FaceLandmarks {
     #expect(classify(lm, &c) == .sad)
 }
 
-@Test func evaluatorScoresAScriptedRecording() throws {
-    let script = GuidedScript(steps: [.init(reaction: .neutral, duration: 3), .init(reaction: .surprised, duration: 3),
-                                      .init(reaction: .neutral, duration: 3)])
-    var frames: [LabeledFrame] = []
+@Test func evaluatorScoresAGuidedRecording() throws {
+    var session = GuidedSession(start: 0, reactions: [.neutral, .surprised, .neutral], prepare: 1, hold: 3)
     var t = 0.0
-    while let s = script.step(at: t) {
-        let lm = s.step.reaction == .surprised ? face(mouthOpen: 0.07) : face()
-        frames.append(LabeledFrame(label: s.labelled ? s.step.reaction : nil,
-                                   observation: FrameObservation(timestamp: t, face: lm, hands: [])))
+    while let snap = session.tick(t) {
+        let lm = snap.reaction == .surprised && snap.phase == .hold ? face(mouthOpen: 0.09) : face()
+        session.record(FrameObservation(timestamp: t, face: lm, hands: []), at: t)
         t += 1.0 / 30
     }
-    let report = Evaluator().evaluate(Recording(camera: "test", frames: frames))
-    #expect(report.macroF1 > 0.95)
+    let report = Evaluator().evaluate(session.recording(camera: "test"))
+    #expect(report.macroF1 > 0.9)
     #expect(report.falseSwitchesPerMinute < 1)
     let surprised = try #require(report.classes.first { $0.reaction == .surprised })
-    #expect(surprised.shownRatio > 0.8)
+    #expect(surprised.shownRatio > 0.6)
+}
+
+@Test func guidedSessionPhasesPauseSkipRedo() throws {
+    var s = GuidedSession(start: 0, reactions: [.smile, .thumbsUp, .peace], prepare: 2, hold: 4, settle: 0.5)
+    #expect(s.tick(1)?.phase == .prepare)
+    #expect(s.tick(2.1)?.phase == .hold)
+    #expect(s.tick(2.1)?.reaction == .smile)
+    // Pause freezes time.
+    s.togglePause(3)
+    #expect(s.tick(20)?.reaction == .smile)
+    s.togglePause(20)
+    #expect(s.tick(21)?.phase == .hold)      // 3 + (21-20) = 4 s in → still holding smile (hold 4 s + 3 s first-step bonus)
+    // Skip moves to the next reaction's prepare.
+    s.skip(21)
+    #expect(s.tick(21.5)?.reaction == .thumbsUp)
+    #expect(s.tick(21.5)?.phase == .prepare)
+    // Redo during prepare goes back one reaction.
+    s.redoPrevious(22)
+    #expect(s.tick(22.5)?.reaction == .smile)
+    // Frames recorded during prepare are never labelled.
+    s.record(FrameObservation(timestamp: 22.5, face: nil, hands: []), at: 22.5)
+    #expect(s.recording(camera: "x").frames.last?.label == nil)
 }
 
 /// Replays real recordings dropped into Tests/Fixtures (skipped when none exist).

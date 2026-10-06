@@ -263,15 +263,29 @@
       "file": "facepalm_cat_1.gif",
       "category": "facepalm",
       "animal": "cat",
-      "title": "Facepalm Orange Cat",
-      "source": "https://media.tenor.com/7SPkxQlwP9gAAAAC/azrael-facepalm.gif"
+      "title": "Cat Facepalm",
+      "source": "https://media.tenor.com/NYGLuNBrXCQAAAAC/facepalm-cat.gif"
     },
     {
       "file": "facepalm_cat_2.gif",
       "category": "facepalm",
       "animal": "cat",
-      "title": "Facepalm Blue Cat",
-      "source": "https://media.tenor.com/ciKqB-2eOHwAAAAC/facepalm-oh-god.gif"
+      "title": "Classic Facepalm Cat",
+      "source": "https://media.tenor.com/mCKRFbSygEgAAAAC/cat-facepalm.gif"
+    },
+    {
+      "file": "facepalm_cat_3.gif",
+      "category": "facepalm",
+      "animal": "cat",
+      "title": "Cat Hides Face",
+      "source": "https://media.tenor.com/6WW_YGd1vBQAAAAC/cat-hide-face.gif"
+    },
+    {
+      "file": "facepalm_hamster_1.gif",
+      "category": "facepalm",
+      "animal": "hamster",
+      "title": "It's So Over Hamster",
+      "source": "https://media.tenor.com/efb3SYgsYjoAAAAC/animals-with-captions-its-so-over.gif"
     }
   ]
 }

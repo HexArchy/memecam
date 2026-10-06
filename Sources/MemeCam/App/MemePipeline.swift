@@ -26,9 +26,8 @@ struct PipelineStatus: Sendable {
     /// Something is wrong with the camera feed (user-facing text), nil when fine.
     var cameraIssue: String?
     var cameraName = ""
-    /// Guided accuracy test: what the user should show now, and overall progress 0...1.
-    var guidedPrompt: Reaction?
-    var guidedProgress: Double = 0
+    /// Interactive accuracy test state (nil when not running).
+    var guided: GuidedSession.Snapshot?
     /// Neutral-face calibration: progress 0...1 while measuring, and the current state.
     var calibrationProgress: Double = 1
     var calibration: ReactionClassifier.Calibration = .none
@@ -62,7 +61,7 @@ final class MemePipeline: @unchecked Sendable {
         var memeStart: TimeInterval = 0
         var forcedUntil: TimeInterval = 0
         var calibrateNext = false
-        var guided: (start: TimeInterval, script: GuidedScript, frames: [LabeledFrame])?
+        var guided: GuidedSession?
         var inferenceMs = 0.0
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -76,10 +75,13 @@ final class MemePipeline: @unchecked Sendable {
     /// labelled observations for offline evaluation.
     func startGuidedSession() {
         let now = CACurrentMediaTime()
-        state.withLock { $0.guided = (now, GuidedScript(), []) }
+        state.withLock { $0.guided = GuidedSession(start: now) }
     }
 
     func cancelGuidedSession() { state.withLock { $0.guided = nil } }
+    func toggleGuidedPause() { let now = CACurrentMediaTime(); state.withLock { $0.guided?.togglePause(now) } }
+    func skipGuidedStep() { let now = CACurrentMediaTime(); state.withLock { $0.guided?.skip(now) } }
+    func redoGuidedStep() { let now = CACurrentMediaTime(); state.withLock { $0.guided?.redoPrevious(now) } }
     private var lastStatusTime: TimeInterval = 0
     private var frameTimes: [TimeInterval] = []
 
@@ -208,7 +210,7 @@ final class MemePipeline: @unchecked Sendable {
                 meme: s.memeImage?.frame(at: t),
                 previousMeme: transition < 1 ? s.previousFrame : nil,
                 transition: transition,
-                caption: Self.guidedCaption(s, now: now) ?? (s.settings.showCaption ? s.meme?.title : nil),
+                caption: s.guided == nil && s.settings.showCaption ? s.meme?.title : nil,
                 layout: s.settings.layout,
                 mirror: s.settings.mirror)
         }
@@ -238,12 +240,11 @@ final class MemePipeline: @unchecked Sendable {
                     s.classifier.beginCalibration() // median of the next 15 face frames
                     s.calibrateNext = false
                 }
-                if let g = s.guided {
-                    if let step = g.script.step(at: now - g.start) {
-                        s.guided?.frames.append(LabeledFrame(label: step.labelled ? step.step.reaction : nil,
-                                                             observation: obs))
-                    } else {
-                        let rec = Recording(camera: camera.currentDeviceName, frames: g.frames)
+                if s.guided != nil {
+                    if s.guided?.tick(now) != nil {
+                        s.guided?.record(obs, at: now)
+                    } else if let g = s.guided {
+                        let rec = g.recording(camera: camera.currentDeviceName)
                         s.guided = nil
                         let done = onRecordingFinished
                         DispatchQueue.global(qos: .utility).async { done?(rec) }
@@ -259,12 +260,6 @@ final class MemePipeline: @unchecked Sendable {
                 }
             }
         }
-    }
-
-    private static func guidedCaption(_ s: State, now: TimeInterval) -> String? {
-        guard let g = s.guided, let step = g.script.step(at: now - g.start) else { return nil }
-        let what = step.step.reaction == .noFace ? "Leave the frame" : "Show: \(step.step.reaction.title)"
-        return "\(what) · \(Int(step.remaining.rounded(.up)))"
     }
 
     private func setReaction(_ r: Reaction, confidence: Double, now: TimeInterval, in s: inout State,
@@ -308,12 +303,7 @@ final class MemePipeline: @unchecked Sendable {
             st.faceVisible = s.metrics != nil
             return st
         }
-        let guided: (Reaction, Double)? = state.withLock { s in
-            guard let g = s.guided, let step = g.script.step(at: now - g.start) else { return nil }
-            return (step.step.reaction, (now - g.start) / g.script.totalDuration)
-        }
-        status.guidedPrompt = guided?.0
-        status.guidedProgress = guided?.1 ?? 0
+        status.guided = state.withLock { $0.guided?.tick(now) }
         status.cameraIssue = cameraIssue
         status.cameraName = camera.currentDeviceName
         onStatus(status)

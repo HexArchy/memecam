@@ -118,7 +118,9 @@ public struct Evaluator: Sendable {
             }
             if label == .neutral {
                 neutralTime += dt
-                if shown != before { neutralSwitches += 1 }
+                // A false switch = jumping to some other reaction while holding a neutral face
+                // (settling back *into* neutral after the previous prompt is fine).
+                if shown != before, shown != .neutral { neutralSwitches += 1 }
             }
         }
 
@@ -135,38 +137,5 @@ public struct Evaluator: Sendable {
         return Report(classes: classes, macroF1: macro,
                       falseSwitchesPerMinute: neutralTime > 0 ? Double(neutralSwitches) / (neutralTime / 60) : 0,
                       topConfusions: Array(confusions))
-    }
-}
-
-/// The scripted prompts of a guided recording session.
-public struct GuidedScript: Sendable {
-    public struct Step: Sendable, Equatable {
-        public var reaction: Reaction
-        public var duration: Double
-    }
-
-    /// Seconds at the start of each step that are not labelled (the user is still moving).
-    public static let transition = 1.2
-
-    public var steps: [Step]
-
-    public init(steps: [Step]? = nil) {
-        self.steps = steps ?? ([Step(reaction: .neutral, duration: 6)]
-            + Reaction.allCases.filter { $0 != .neutral && $0 != .noFace }.map { Step(reaction: $0, duration: 4) }
-            + [Step(reaction: .neutral, duration: 5), Step(reaction: .noFace, duration: 4)])
-    }
-
-    public var totalDuration: Double { steps.map(\.duration).reduce(0, +) }
-
-    /// Which step is active `elapsed` seconds in, and whether its frames count as labelled.
-    public func step(at elapsed: Double) -> (index: Int, step: Step, labelled: Bool, remaining: Double)? {
-        var t = 0.0
-        for (i, s) in steps.enumerated() {
-            if elapsed < t + s.duration {
-                return (i, s, elapsed - t >= Self.transition, t + s.duration - elapsed)
-            }
-            t += s.duration
-        }
-        return nil
     }
 }

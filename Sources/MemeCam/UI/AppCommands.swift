@@ -3,6 +3,7 @@ import SwiftUI
 struct AppCommands: Commands {
     let model: AppModel
     let ui: UIState
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
         CommandMenu("Camera") {
@@ -22,6 +23,12 @@ struct AppCommands: Commands {
             ForEach(Array(OutputLayout.allCases.enumerated()), id: \.element) { index, layout in
                 Button(layout.title) { model.layout = layout }
                     .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")))
+            }
+        }
+        CommandGroup(after: .help) {
+            Button("Show Onboarding\u{2026}") {
+                openWindow(id: "main")
+                ui.onboardingRequested = true
             }
         }
     }

@@ -27,8 +27,14 @@ public struct HandShape: Sendable, Equatable {
     /// Wrist -> middle MCP distance; the hand's own length unit.
     public var palmSize: Double
 
+    /// tip-to-wrist / PIP-to-wrist per finger (index…little). ~0.65 curled into a fist,
+    /// ~1.0–1.1 bent/curved (heart hands), ≥1.25 straight. 0 when the finger wasn't seen.
+    public var fingerReach: [Double]
+
     public var extendedCount: Int { fingersExtended.filter { $0 }.count }
 
+    /// Tolerates missing joints: Vision drops low-confidence joints of fingers hidden inside a
+    /// fist, so an unseen finger counts as curled instead of discarding the whole hand.
     public init?(_ hand: HandPose) {
         guard let wrist = hand[.wrist], let middleMCP = hand[.middleMCP] else { return nil }
         let palm = wrist.distance(to: middleMCP)
@@ -41,29 +47,48 @@ public struct HandShape: Sendable, Equatable {
             (.ringMCP, .ringPIP, .ringTip),
             (.littleMCP, .littlePIP, .littleTip),
         ]
-        var fingers: [Bool] = []
+        var fingers: [Bool] = [], reach: [Double] = []
         for (mcpJ, pipJ, tipJ) in chains {
-            guard let mcp = hand[mcpJ], let pip = hand[pipJ], let tip = hand[tipJ] else { return nil }
-            let tipFar = wrist.distance(to: tip) > wrist.distance(to: pip) * 1.15
-            let longEnough = mcp.distance(to: tip) > palm * 0.55
-            fingers.append(tipFar && longEnough)
+            guard let pip = hand[pipJ], let tip = hand[tipJ] else {
+                fingers.append(false)
+                reach.append(0)
+                continue
+            }
+            let r = wrist.distance(to: tip) / max(wrist.distance(to: pip), 1e-6)
+            let longEnough = hand[mcpJ].map { $0.distance(to: tip) > palm * 0.55 } ?? true
+            fingers.append(r > 1.15 && longEnough)
+            reach.append(r)
         }
         fingersExtended = fingers
+        fingerReach = reach
 
-        guard let tTip = hand[.thumbTip], let tIP = hand[.thumbIP], let tMP = hand[.thumbMP],
-              let littleMCP = hand[.littleMCP] else { return nil }
+        guard let tTip = hand[.thumbTip], let tMP = hand[.thumbMP] ?? hand[.thumbCMC] else {
+            thumbExtended = false
+            thumbVertical = 0
+            return
+        }
+        let tIP = hand[.thumbIP] ?? tMP
         // Measured against the little-finger knuckle: stays valid when the hand rotates.
-        thumbExtended = tTip.distance(to: littleMCP) > tMP.distance(to: littleMCP) * 1.1
+        let anchor = hand[.littleMCP] ?? hand[.ringMCP] ?? middleMCP
+        thumbExtended = tTip.distance(to: anchor) > tMP.distance(to: anchor) * 1.1
             && wrist.distance(to: tTip) > wrist.distance(to: tIP) * 1.03
         let dx = Double(tTip.x - tMP.x), dy = Double(tTip.y - tMP.y)
         let len = max(hypot(dx, dy), 1e-6)
         thumbVertical = dy / len
     }
 
+    /// Thumb down with index+middle bent in an arc (not tucked into a fist): what Vision sees
+    /// when two hands form a heart — it usually merges them into one "hand".
+    public var looksLikeHalfHeart: Bool {
+        thumbExtended && thumbVertical < -0.5 && (fingerReach[0] + fingerReach[1]) / 2 > 0.92
+            && extendedCount <= 1
+    }
+
     /// Like `gesture`, plus checks that need the joints: a thumbs-up thumb must be the
     /// highest point of the hand (a thumbs-down the lowest), which rejects sideways fists.
     public func gesture(for hand: HandPose) -> HandGesture? {
         let g = gesture
+        if g == .thumbsDown && looksLikeHalfHeart { return nil } // classifier decides (heart)
         guard g == .thumbsUp || g == .thumbsDown, let tip = hand[.thumbTip] else { return g }
         let others: [HandJoint] = [.indexTip, .middleTip, .ringTip, .littleTip, .indexPIP, .middlePIP]
         let ys = others.compactMap { hand[$0]?.y }

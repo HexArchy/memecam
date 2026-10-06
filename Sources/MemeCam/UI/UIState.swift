@@ -26,6 +26,8 @@ final class UIState {
     var inspectorTab: InspectorTab { didSet { defaults.set(inspectorTab.rawValue, forKey: "inspectorTabV2") } }
     /// Reaction whose memes are open in the meme editor; nil shows the reaction grid.
     var editingReaction: Reaction?
+    /// Set by Help › Show Onboarding… to replay the onboarding after it was completed.
+    var onboardingRequested = false
 
     private let defaults = UserDefaults.standard
 

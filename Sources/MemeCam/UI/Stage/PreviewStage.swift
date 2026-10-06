@@ -5,6 +5,7 @@ import SwiftUI
 struct PreviewStage: View {
     @Environment(AppModel.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isPreviewSuspended) private var previewSuspended
 
     var body: some View {
         let running = model.cameraState == .running
@@ -15,9 +16,11 @@ struct PreviewStage: View {
             } else {
                 StageBackdrop()
             }
-            PreviewLayerView(layer: model.preview.layer)
-                .opacity(running ? 1 : 0)
-                .accessibilityLabel("Live preview of the MemeCam output")
+            if !previewSuspended {
+                PreviewLayerView(layer: model.preview.layer)
+                    .opacity(running ? 1 : 0)
+                    .accessibilityLabel("Live preview of the MemeCam output")
+            }
             if !running {
                 StateOverlay()
                     .transition(.opacity)
@@ -25,7 +28,7 @@ struct PreviewStage: View {
         }
         .aspectRatio(16.0 / 9.0, contentMode: .fit)
         .overlay(alignment: .topLeading) {
-            if running, issue == nil {
+            if running, issue == nil, model.status.guided == nil {
                 ReactionChip(reaction: model.status.reaction, confidence: model.status.confidence)
                     .padding(14)
                     .transition(.opacity.combined(with: .scale(0.95, anchor: .topLeading)))
@@ -38,6 +41,7 @@ struct PreviewStage: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .overlay { AccuracyTestOverlay() }
         .clipShape(.rect(cornerRadius: Design.stageRadius))
         .overlay {
             RoundedRectangle(cornerRadius: Design.stageRadius)
@@ -60,4 +64,17 @@ private struct StageBackdrop: View {
                            startPoint: .topLeading, endPoint: .bottomTrailing)
         }
     }
+}
+
+extension EnvironmentValues {
+    /// True while another view (the onboarding) shows the shared preview layer.
+    // Manual key: the @Entry macro plugin isn't available with Command Line Tools builds.
+    var isPreviewSuspended: Bool {
+        get { self[PreviewSuspendedKey.self] }
+        set { self[PreviewSuspendedKey.self] = newValue }
+    }
+}
+
+private struct PreviewSuspendedKey: EnvironmentKey {
+    static let defaultValue = false
 }
