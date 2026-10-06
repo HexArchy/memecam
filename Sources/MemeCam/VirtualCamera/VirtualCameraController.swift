@@ -13,6 +13,9 @@ enum VirtualCameraState: Equatable, Sendable {
     case awaitingApproval
     /// Installed, waiting to connect to the extension's sink stream.
     case connecting
+    /// Installed and visible to other apps, but MemeCam's own camera isn't running,
+    /// so other apps see the "MemeCam is paused" frame.
+    case ready
     /// Frames are flowing into the virtual camera.
     case streaming
     case failed(String)
@@ -23,6 +26,7 @@ enum VirtualCameraState: Equatable, Sendable {
         case .notInstalled: "Not Installed"
         case .awaitingApproval: "Waiting for Approval"
         case .connecting: "Connecting…"
+        case .ready: "Ready"
         case .streaming: "Live"
         case .failed: "Unavailable"
         }
@@ -191,7 +195,8 @@ final class VirtualCameraController {
         case .streaming:
             next = .streaming
         case .ready:
-            next = .connecting
+            // Device present, sink not fed: the camera is off (or about to connect).
+            next = .ready
         case .deviceMissing, nil:
             if let installOutcome {
                 next = installOutcome

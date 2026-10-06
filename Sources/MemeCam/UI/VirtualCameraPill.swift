@@ -4,6 +4,7 @@ extension VirtualCameraState {
     var tint: Color {
         switch self {
         case .streaming: .green
+        case .ready: .blue
         case .connecting, .checking: .yellow
         case .notInstalled, .awaitingApproval: .orange
         case .failed: .red
@@ -13,6 +14,7 @@ extension VirtualCameraState {
     var symbol: String {
         switch self {
         case .streaming: "checkmark.circle.fill"
+        case .ready: "pause.circle"
         case .connecting, .checking: "ellipsis.circle"
         case .notInstalled: "arrow.down.circle"
         case .awaitingApproval: "lock.open"
@@ -26,6 +28,7 @@ extension VirtualCameraState {
         case .notInstalled: "Install the virtual camera so other apps can use MemeCam."
         case .awaitingApproval: "Allow MemeCam in System Settings > General > Login Items & Extensions > Camera Extensions."
         case .connecting: "Connecting to the virtual camera."
+        case .ready: "Installed. Start the camera (⌘R) to send memes — until then other apps see “MemeCam is paused”."
         case .streaming: "Other apps can pick the \u{201C}MemeCam\u{201D} camera."
         case .failed(let message): message
         }
@@ -37,6 +40,7 @@ extension VirtualCameraState {
         case .notInstalled: "Install Virtual Camera"
         case .awaitingApproval: "Open System Settings"
         case .failed: "Retry"
+        case .ready: "Start Camera"
         case .checking, .connecting, .streaming: nil
         }
     }
@@ -44,8 +48,9 @@ extension VirtualCameraState {
 
 extension VirtualCameraController {
     /// Performs `state.actionTitle`'s action.
-    func performPrimaryAction() {
+    func performPrimaryAction(startCamera: () -> Void = {}) {
         switch state {
+        case .ready: startCamera()
         case .notInstalled: install()
         case .awaitingApproval: openSystemSettings()
         case .failed: refresh()
@@ -62,7 +67,7 @@ struct VirtualCameraPill: View {
     var body: some View {
         let state = model.virtualCamera.state
         Button {
-            model.virtualCamera.performPrimaryAction()
+            model.virtualCamera.performPrimaryAction(startCamera: model.start)
             showDetail = true
         } label: {
             HStack(spacing: 7) {
@@ -103,7 +108,7 @@ struct VirtualCameraDetail: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if let action = state.actionTitle {
-                Button(action) { model.virtualCamera.performPrimaryAction() }
+                Button(action) { model.virtualCamera.performPrimaryAction(startCamera: model.start) }
                     .buttonStyle(.borderedProminent)
             }
             Divider()
