@@ -1,10 +1,12 @@
-// Renders Resources/Branding/icon.svg into Resources/AppIcon.icns (plus a 1024 PNG).
+// Renders the app icon into Resources/AppIcon.icns (plus icon-1024.png).
+// Source: Resources/Branding/icon-master.png (1024², transparent margins) if present, else icon.svg.
 // Usage: swift scripts/render-icon.swift
 import AppKit
 
 let root = URL(filePath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : FileManager.default.currentDirectoryPath)
-let svg = root.appending(path: "Resources/Branding/icon.svg")
-guard let image = NSImage(contentsOf: svg) else { fatalError("cannot load \(svg.path)") }
+let master = root.appending(path: "Resources/Branding/icon-master.png")
+let source = FileManager.default.fileExists(atPath: master.path) ? master : root.appending(path: "Resources/Branding/icon.svg")
+guard let image = NSImage(contentsOf: source) else { fatalError("cannot load \(source.path)") }
 
 func png(_ px: Int) -> Data {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: px, pixelsHigh: px, bitsPerSample: 8,
