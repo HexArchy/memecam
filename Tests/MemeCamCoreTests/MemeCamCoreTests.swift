@@ -35,7 +35,14 @@ private func face(mouthOpen: CGFloat = 0.01, smileWiden: CGFloat = 0, cornerLift
 }
 
 /// Hand with wrist at origin offset; `up` controls which fingers point up.
-private func hand(at o: CGPoint, extended: [Bool], thumb: CGFloat? = nil) -> HandPose {
+private func hand(at o: CGPoint, extended: [Bool], thumb: CGFloat? = nil, scale: CGFloat = 1.5) -> HandPose {
+    let pose = unscaledHand(at: .zero, extended: extended, thumb: thumb)
+    // Real palms are ~0.3–0.45 of face height; scale the unit-size fixture accordingly.
+    return HandPose(joints: pose.joints.mapValues { CGPoint(x: o.x + $0.x * scale, y: o.y + $0.y * scale) },
+                    confidence: pose.confidence)
+}
+
+private func unscaledHand(at o: CGPoint, extended: [Bool], thumb: CGFloat? = nil) -> HandPose {
     var j: [HandJoint: CGPoint] = [.wrist: o]
     let xs: [CGFloat] = [-0.03, -0.01, 0.01, 0.03]
     let names: [(HandJoint, HandJoint, HandJoint, HandJoint)] = [
@@ -53,8 +60,8 @@ private func hand(at o: CGPoint, extended: [Bool], thumb: CGFloat? = nil) -> Han
     j[.thumbCMC] = CGPoint(x: o.x - 0.03, y: o.y + 0.02)
     j[.thumbMP] = base
     if let d = thumb {
-        j[.thumbIP] = CGPoint(x: base.x - 0.01, y: base.y + 0.05 * d)
-        j[.thumbTip] = CGPoint(x: base.x - 0.015, y: base.y + 0.1 * d)
+        j[.thumbIP] = CGPoint(x: base.x - 0.01, y: base.y + 0.07 * d)
+        j[.thumbTip] = CGPoint(x: base.x - 0.015, y: base.y + 0.14 * d)
     } else {
         j[.thumbIP] = CGPoint(x: o.x - 0.04, y: o.y + 0.08)
         j[.thumbTip] = CGPoint(x: o.x - 0.025, y: o.y + 0.1)
@@ -110,13 +117,78 @@ private func classify(_ lm: FaceLandmarks?, hands: [HandPose] = [], _ c: inout R
     #expect(classify(nil, &c) == .noFace)
 }
 
+/// Feeds `r` at 30 FPS from `t0` to `t1`; returns every change the stabilizer emitted.
+private func feed(_ s: inout ReactionStabilizer, _ r: Reaction, _ t0: Double, _ t1: Double,
+                  confidence: Double = 1) -> [Reaction] {
+    var out: [Reaction] = []
+    var t = t0
+    while t < t1 {
+        if let c = s.update(r, confidence: confidence, at: t) { out.append(c) }
+        t += 1.0 / 30
+    }
+    return out
+}
+
 @Test func stabilizerDebounces() {
     var s = ReactionStabilizer(minHold: 1)
-    #expect(s.update(.smile, at: 0) == nil)
-    #expect(s.update(.smile, at: 0.3) == .smile)
-    #expect(s.update(.surprised, at: 0.4) == nil)      // still within minHold
-    #expect(s.update(.surprised, at: 1.4) == .surprised)
-    #expect(s.update(.eyesClosed, at: 2.5) == nil)     // blink
-    #expect(s.update(.surprised, at: 2.6) == nil)
+    #expect(feed(&s, .smile, 0, 0.5) == [.smile])
+    #expect(feed(&s, .surprised, 0.5, 0.9).isEmpty)          // still within minHold
+    #expect(feed(&s, .surprised, 0.9, 1.6) == [.surprised])
+    #expect(feed(&s, .eyesClosed, 2.6, 2.8).isEmpty)          // a blink
+    #expect(feed(&s, .surprised, 2.8, 3.5).isEmpty)
     #expect(s.current == .surprised)
+}
+
+@Test func stabilizerIgnoresSingleFrameGlitches() {
+    var s = ReactionStabilizer(minHold: 0.2)
+    _ = feed(&s, .thumbsUp, 0, 1)
+    // Every 4th frame misclassified as fist: the vote keeps thumbs up.
+    var t = 1.0, changes: [Reaction] = []
+    for i in 0..<60 {
+        if let c = s.update(i % 4 == 0 ? .fist : .thumbsUp, at: t) { changes.append(c) }
+        t += 1.0 / 30
+    }
+    #expect(changes.isEmpty)
+    #expect(s.current == .thumbsUp)
+}
+
+@Test func stabilizerAbstainsOnZeroConfidence() {
+    var s = ReactionStabilizer(minHold: 0.2)
+    _ = feed(&s, .smile, 0, 1)
+    #expect(feed(&s, .neutral, 1, 2, confidence: 0).isEmpty)
+    #expect(s.current == .smile)
+}
+
+@Test func oneEuroSmoothsJitterButFollowsSteps() {
+    var f = OneEuroFilter()
+    var t = 0.0, out = 0.0
+    for i in 0..<60 { out = f.filter(i % 2 == 0 ? 0.49 : 0.51, at: t); t += 1.0 / 30 }
+    #expect(abs(out - 0.5) < 0.006)                            // jitter attenuated
+    for _ in 0..<9 { out = f.filter(1.0, at: t); t += 1.0 / 30 } // 0.3 s after a step
+    #expect(out > 0.9)
+}
+
+@Test func autoCalibrationUsesMedianOfCalmFrames() throws {
+    var c = ReactionClassifier()
+    var t = 0.0
+    let calm = face(smileWiden: 0.012) // this user's resting mouth is a bit wider than typical
+    for _ in 0..<20 { _ = c.classify(FrameObservation(timestamp: t, face: calm, hands: [])); t += 1.0 / 30 }
+    #expect(c.calibration == .automatic)
+    // Their resting face must read as neutral, not smile.
+    #expect(c.classify(FrameObservation(timestamp: t, face: calm, hands: [])).reaction == .neutral)
+}
+
+@Test func headTurnAbstains() {
+    var c = ReactionClassifier()
+    var lm = face(mouthOpen: 0.07)
+    lm.yaw = 0.8
+    #expect(c.classify(FrameObservation(timestamp: 0, face: lm, hands: [])).confidence == 0)
+}
+
+@Test func sidewaysFistIsNotThumbsUp() {
+    var c = ReactionClassifier()
+    // Thumb "up" relative to its base but index knuckles higher than the thumb tip.
+    var h = hand(at: CGPoint(x: 1.2, y: 0.2), extended: [false, false, false, false], thumb: 1)
+    h.joints[.indexPIP] = CGPoint(x: 1.2, y: 0.2 + 0.5)
+    #expect(classify(nil, hands: [h], &c) == .fist)
 }

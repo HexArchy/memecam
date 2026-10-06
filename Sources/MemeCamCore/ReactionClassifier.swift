@@ -3,7 +3,8 @@ import Foundation
 
 public struct ReactionEstimate: Sendable, Equatable {
     public var reaction: Reaction
-    /// 0...1, how strongly the winning rule fired.
+    /// 0...1, how strongly the winning rule fired. 0 = "no opinion" (unreliable frame),
+    /// which the stabilizer ignores instead of treating it as a vote.
     public var confidence: Double
     public var metrics: FaceMetrics?
 
@@ -16,22 +17,45 @@ public struct ReactionEstimate: Sendable, Equatable {
 
 /// Maps one frame of observations to a single best reaction.
 ///
-/// Face expressions are judged *relative to a per-user neutral baseline* that is learned
-/// automatically (slow EMA while the user looks neutral) or explicitly via `calibrate()`.
-/// This is the main accuracy win over fixed-threshold approaches.
+/// Pipeline per frame:
+/// 1. Gestures (hand shape + position relative to the face) take precedence over expressions.
+/// 2. Face metrics are smoothed with a One Euro filter.
+/// 3. Expressions are scored *relative to the user's own neutral face* (baseline), each score
+///    normalised so that 1.0 = threshold; the best score ≥ 1 wins, with hysteresis that favours
+///    the reaction currently shown.
+/// 4. Frames with the head turned far away are skipped (landmark geometry is unreliable there).
+///
+/// The baseline is the per-field median of the first calm frames (auto-calibration), can be
+/// re-measured with `beginCalibration()`, and keeps adapting very slowly while neutral.
 public struct ReactionClassifier: Sendable {
     public struct Config: Sendable, Equatable {
         /// 0.5 = needs exaggerated expressions, 1.5 = very sensitive.
         public var sensitivity: Double = 1.0
         public var tiltDegrees: Double = 18
+        /// Beyond this head yaw/pitch (radians) expressions are not judged.
+        public var maxHeadTurn: Double = 0.45
         public var enableGestures = true
         public var enableExpressions = true
         public init() {}
     }
 
+    public enum Calibration: Sendable, Equatable {
+        case none, automatic, manual
+    }
+
     public var config: Config
     public private(set) var baseline: FaceMetrics = .typicalNeutral
-    public private(set) var isCalibrated = false
+    public private(set) var calibration: Calibration = .none
+    public var isCalibrated: Bool { calibration != .none }
+    /// 0...1 while collecting calibration frames.
+    public var calibrationProgress: Double { collecting ? Double(samples.count) / Double(Self.calibrationFrames) : 1 }
+
+    private static let calibrationFrames = 15
+    private var samples: [FaceMetrics] = []
+    private var collecting = true
+    private var collectingManual = false
+    private var filter = FaceMetricsFilter()
+    private var lastExpression: Reaction = .neutral
 
     /// Last face box, kept briefly so a hand covering the face still reads as facepalm.
     private var lastFaceBox: CGRect?
@@ -41,15 +65,25 @@ public struct ReactionClassifier: Sendable {
         self.config = config
     }
 
-    /// Snap the neutral baseline to the given metrics (user pressed "Calibrate").
+    /// Re-measure the neutral face over the next frames (user pressed "Calibrate").
+    public mutating func beginCalibration() {
+        samples.removeAll()
+        collecting = true
+        collectingManual = true
+    }
+
+    /// Snap the neutral baseline to the given metrics.
     public mutating func calibrate(to metrics: FaceMetrics) {
         baseline = metrics
         baseline.rollDegrees = 0
-        isCalibrated = true
+        calibration = .manual
+        collecting = false
+        collectingManual = false
     }
 
     public mutating func classify(_ frame: FrameObservation) -> ReactionEstimate {
-        let metrics = frame.face.flatMap(FaceMetrics.init)
+        let raw = frame.face.flatMap(FaceMetrics.init)
+        let metrics = raw.map { filter.filter($0, at: frame.timestamp) }
         if let face = frame.face {
             lastFaceBox = face.boundingBox
             lastFaceTime = frame.timestamp
@@ -60,25 +94,55 @@ public struct ReactionClassifier: Sendable {
         if config.enableGestures, let g = classifyGestures(frame.hands, faceBox: faceBox) {
             return ReactionEstimate(reaction: g.0, confidence: g.1, metrics: metrics)
         }
-        guard let metrics else {
+        guard let face = frame.face, let metrics, let raw else {
             return ReactionEstimate(reaction: frame.hands.isEmpty ? .noFace : .neutral, confidence: 1)
         }
         guard config.enableExpressions else {
             return ReactionEstimate(reaction: .neutral, confidence: 1, metrics: metrics)
         }
+
+        let headTurned = abs(face.yaw) > config.maxHeadTurn || abs(face.pitch) > config.maxHeadTurn
+        if collecting, frame.hands.isEmpty, !headTurned {
+            collectCalibrationSample(raw)
+        }
+        if headTurned {
+            // Turned away: profile landmarks distort mouth/eye ratios. Abstain.
+            return ReactionEstimate(reaction: lastExpression, confidence: 0, metrics: metrics)
+        }
+
         let estimate = classifyExpression(metrics)
-        if estimate.reaction == .neutral && frame.hands.isEmpty {
-            // Slowly adapt to this user's resting face.
-            baseline = baseline.blended(toward: metrics, alpha: isCalibrated ? 0.005 : 0.03)
-            baseline.rollDegrees = 0
+        lastExpression = estimate.reaction
+        if estimate.reaction == .neutral, frame.hands.isEmpty, !collecting {
+            // Track slow drift (lighting, posture) without chasing expressions.
+            let roll = baseline.rollDegrees
+            baseline = baseline.blended(toward: metrics, alpha: calibration == .manual ? 0.002 : 0.01)
+            baseline.rollDegrees = roll
         }
         return estimate
+    }
+
+    private mutating func collectCalibrationSample(_ m: FaceMetrics) {
+        // Auto-calibration only accepts calm-looking frames; manual trusts the user.
+        if !collectingManual {
+            let b = FaceMetrics.typicalNeutral
+            guard m.mouthOpen < b.mouthOpen + 0.12, abs(m.rollDegrees) < 12 else { return }
+        }
+        samples.append(m)
+        if samples.count >= Self.calibrationFrames, let med = FaceMetrics.median(samples) {
+            baseline = med
+            calibration = collectingManual ? .manual : .automatic
+            collecting = false
+            collectingManual = false
+            samples.removeAll()
+        }
     }
 
     // MARK: - Gestures
 
     private func classifyGestures(_ hands: [HandPose], faceBox: CGRect?) -> (Reaction, Double)? {
-        let shaped = hands.compactMap { h in HandShape(h).map { (h, $0) } }
+        // Ignore tiny "hands" (background clutter, far-away people).
+        let minPalm = faceBox.map { Double($0.height) * 0.25 } ?? 0.06
+        let shaped = hands.compactMap { h in HandShape(h).map { (h, $0) } }.filter { $0.1.palmSize >= minPalm }
         guard !shaped.isEmpty else { return nil }
 
         if shaped.count >= 2 {
@@ -118,42 +182,56 @@ public struct ReactionClassifier: Sendable {
 
         // Single-hand gesture from the most confident recognised hand.
         let best = shaped
-            .compactMap { h, s in s.gesture.map { ($0, h.confidence) } }
+            .compactMap { h, s in s.gesture(for: h).map { ($0, h.confidence) } }
             .max { $0.1 < $1.1 }
-        return best.map { ($0.0.reaction, $0.1) }
+        return best.map { ($0.0.reaction, max($0.1, 0.5)) }
     }
 
     // MARK: - Expressions
 
-    private func classifyExpression(_ m: FaceMetrics) -> ReactionEstimate {
-        let b = baseline
-        let k = 1 / max(config.sensitivity, 0.1) // >1 means stricter thresholds
-
-        let openDelta = m.mouthOpen - b.mouthOpen
-        let widthRatio = m.mouthWidth / max(b.mouthWidth, 1e-3)
-        let liftDelta = m.cornerLift - b.cornerLift
-        let eyeRatio = m.eyeOpen / max(b.eyeOpen, 1e-3)
-        let browDelta = m.browRaise - b.browRaise
-
-        let smiling = widthRatio > 1 + 0.10 * k || liftDelta > 0.045 * k
-        let smileScore = clamp(max((widthRatio - 1) / 0.25, liftDelta / 0.1))
-
-        func est(_ r: Reaction, _ c: Double) -> ReactionEstimate {
-            ReactionEstimate(reaction: r, confidence: clamp(c), metrics: m)
-        }
-
-        if openDelta > 0.18 * k {
-            return smiling
-                ? est(.laugh, (openDelta / 0.4 + smileScore) / 2)
-                : est(.surprised, openDelta / 0.45)
-        }
-        if eyeRatio < 1 - 0.45 * min(k, 1.6) { return est(.eyesClosed, (1 - eyeRatio) / 0.7) }
-        if browDelta > 0.07 * k { return est(.eyebrowsRaised, browDelta / 0.15) }
-        if smiling { return est(.smile, smileScore) }
-        if liftDelta < -0.04 * k { return est(.sad, -liftDelta / 0.1) }
-        if abs(m.rollDegrees) > config.tiltDegrees * k { return est(.headTilt, abs(m.rollDegrees) / 35) }
-        return est(.neutral, 1)
+    /// Scores are normalised: 1.0 == "just at threshold".
+    struct ExpressionScores {
+        var open = 0.0, smile = 0.0, eyesClosed = 0.0, brows = 0.0, sad = 0.0, tilt = 0.0
     }
 
-    private func clamp(_ x: Double) -> Double { min(max(x, 0), 1) }
+    func scores(_ m: FaceMetrics) -> ExpressionScores {
+        let b = baseline
+        let k = 1 / max(config.sensitivity, 0.1) // >1 means stricter thresholds
+        let widthRatio = m.mouthWidth / max(b.mouthWidth, 1e-3)
+        let eyeRatio = m.eyeOpen / max(b.eyeOpen, 1e-3)
+        var s = ExpressionScores()
+        s.open = (m.mouthOpen - b.mouthOpen) / (0.18 * k)
+        s.smile = max((widthRatio - 1) / (0.10 * k), (m.cornerLift - b.cornerLift) / (0.045 * k))
+        s.eyesClosed = (1 - eyeRatio) / (0.45 * min(k, 1.6))
+        s.brows = (m.browRaise - b.browRaise) / (0.07 * k)
+        s.sad = -(m.cornerLift - b.cornerLift) / (0.04 * k)
+        s.tilt = abs(m.rollDegrees - b.rollDegrees) / (config.tiltDegrees * k)
+        return s
+    }
+
+    private func classifyExpression(_ m: FaceMetrics) -> ReactionEstimate {
+        let s = scores(m)
+        var candidates: [(Reaction, Double)] = []
+        if s.open >= 1 {
+            // Open mouth: laugh if also smiling, else surprise. Raised brows are part of surprise.
+            candidates.append(s.smile >= 1 ? (.laugh, (s.open + s.smile) / 2) : (.surprised, s.open))
+        } else {
+            candidates.append((.smile, s.smile))
+            candidates.append((.sad, s.smile < 0.5 ? s.sad : 0))
+        }
+        candidates.append((.eyesClosed, s.eyesClosed))
+        candidates.append((.eyebrowsRaised, s.open >= 1 ? 0 : s.brows))
+        candidates.append((.headTilt, s.tilt))
+
+        // Hysteresis: the reaction already shown needs only 80% of its threshold to stay.
+        let best = candidates
+            .map { r, v in (r, r == lastExpression ? v * 1.25 : v) }
+            .filter { $0.1 >= 1 }
+            .max { $0.1 < $1.1 }
+        guard let (reaction, score) = best else {
+            return ReactionEstimate(reaction: .neutral, confidence: 1, metrics: m)
+        }
+        // Map score 1 → 0.5 confidence, 2+ → 1.0.
+        return ReactionEstimate(reaction: reaction, confidence: min(1, score / 2), metrics: m)
+    }
 }

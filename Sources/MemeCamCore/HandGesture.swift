@@ -60,6 +60,19 @@ public struct HandShape: Sendable, Equatable {
         thumbVertical = dy / len
     }
 
+    /// Like `gesture`, plus checks that need the joints: a thumbs-up thumb must be the
+    /// highest point of the hand (a thumbs-down the lowest), which rejects sideways fists.
+    public func gesture(for hand: HandPose) -> HandGesture? {
+        let g = gesture
+        guard g == .thumbsUp || g == .thumbsDown, let tip = hand[.thumbTip] else { return g }
+        let others: [HandJoint] = [.indexTip, .middleTip, .ringTip, .littleTip, .indexPIP, .middlePIP]
+        let ys = others.compactMap { hand[$0]?.y }
+        guard !ys.isEmpty else { return g }
+        let margin = CGFloat(palmSize * 0.15)
+        if g == .thumbsUp { return tip.y > ys.max()! + margin ? .thumbsUp : .fist }
+        return tip.y < ys.min()! - margin ? .thumbsDown : .fist
+    }
+
     public var gesture: HandGesture? {
         let f = fingersExtended
         let curledFour = extendedCount == 0

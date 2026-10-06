@@ -205,14 +205,14 @@ final class MemePipeline: @unchecked Sendable {
             state.withLock { s in
                 s.visionBusy = false
                 s.inferenceMs = s.inferenceMs * 0.9 + ms * 0.1
-                if s.calibrateNext, let m = obs.face.flatMap(FaceMetrics.init) {
-                    s.classifier.calibrate(to: m)
+                if s.calibrateNext {
+                    s.classifier.beginCalibration() // median of the next 15 face frames
                     s.calibrateNext = false
                 }
                 let est = s.classifier.classify(obs)
                 s.metrics = est.metrics
                 guard now >= s.forcedUntil else { return }
-                if let changed = s.stabilizer.update(est.reaction, at: now) {
+                if let changed = s.stabilizer.update(est.reaction, confidence: est.confidence, at: now) {
                     setReaction(changed, confidence: est.confidence, now: now, in: &s)
                 } else if est.reaction == s.reaction {
                     s.confidence = est.confidence
