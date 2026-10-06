@@ -1,0 +1,263 @@
+{
+ "memes": [
+  {
+   "file": "neutral_cat_1.gif",
+   "category": "neutral",
+   "animal": "cat",
+   "title": "Staring Cat",
+   "source": "https://media.tenor.com/2PP4ln_-L4IAAAAC/cat-side-eye-side-eye.gif"
+  },
+  {
+   "file": "neutral_hamster_1.gif",
+   "category": "neutral",
+   "animal": "hamster",
+   "title": "Standing Hamster Stare",
+   "source": "https://media.tenor.com/0XH5lqLQFOkAAAAC/hamster-stare.gif"
+  },
+  {
+   "file": "smile_cat_1.gif",
+   "category": "smile",
+   "animal": "cat",
+   "title": "Hey Smiling Cat",
+   "source": "https://media.tenor.com/298Aly2LzQwAAAAC/smiling-cat-happy-cat.gif"
+  },
+  {
+   "file": "smile_hamster_1.gif",
+   "category": "smile",
+   "animal": "hamster",
+   "title": "Happy Cartoon Hamster",
+   "source": "https://media.tenor.com/41W4q6wevE0AAAAC/hamster-happyhamster.gif"
+  },
+  {
+   "file": "surprised_cat_1.gif",
+   "category": "surprised",
+   "animal": "cat",
+   "title": "Shocked Cat",
+   "source": "https://media.tenor.com/aLoZNO7gRQoAAAAC/shocked-cat-shocked.gif"
+  },
+  {
+   "file": "surprised_hamster_1.gif",
+   "category": "surprised",
+   "animal": "hamster",
+   "title": "Screaming Drawn Hamster",
+   "source": "https://media.tenor.com/-3e6vwkd4C4AAAAC/omg-hamster.gif"
+  },
+  {
+   "file": "surprised_hamster_2.gif",
+   "category": "surprised",
+   "animal": "hamster",
+   "title": "Shocked Hamster",
+   "source": "https://media.tenor.com/n_CqFXFSBUoAAAAC/nostalgiasedge.gif"
+  },
+  {
+   "file": "surprised_hamster_3.gif",
+   "category": "surprised",
+   "animal": "hamster",
+   "title": "Shocked Hamster 2",
+   "source": "https://media.tenor.com/RMUdOw3-hVkAAAAC/surprised-hampter.gif"
+  },
+  {
+   "file": "eyesClosed_cat_1.gif",
+   "category": "eyesClosed",
+   "animal": "cat",
+   "title": "Sleeping Cat",
+   "source": "https://media.tenor.com/5c9RaitzJmAAAAAC/cat-sleeping.gif"
+  },
+  {
+   "file": "eyesClosed_hamster_1.gif",
+   "category": "eyesClosed",
+   "animal": "hamster",
+   "title": "Sleeping Hamster",
+   "source": "https://media.tenor.com/6VanE7PmYF4AAAAC/hamster-sleep.gif"
+  },
+  {
+   "file": "eyebrowsRaised_cat_1.gif",
+   "category": "eyebrowsRaised",
+   "animal": "cat",
+   "title": "Eyebrow Raise Cat",
+   "source": "https://media.tenor.com/ZROXroj72fYAAAAC/tloc.gif"
+  },
+  {
+   "file": "eyebrowsRaised_cat_2.gif",
+   "category": "eyebrowsRaised",
+   "animal": "cat",
+   "title": "Huh Cat",
+   "source": "https://media.tenor.com/wUv4TBeeuZoAAAAC/cat-huh.gif"
+  },
+  {
+   "file": "sad_cat_1.gif",
+   "category": "sad",
+   "animal": "cat",
+   "title": "Crying Cat",
+   "source": "https://media.tenor.com/d9PoZm99CTgAAAAC/sadcat-crying-cat.gif"
+  },
+  {
+   "file": "sad_hamster_1.gif",
+   "category": "sad",
+   "animal": "hamster",
+   "title": "Sad Crying Hamster",
+   "source": "https://media.tenor.com/GIQybzxRoNIAAAAC/very-sad-hampter-huhu.gif"
+  },
+  {
+   "file": "headTilt_cat_1.gif",
+   "category": "headTilt",
+   "animal": "cat",
+   "title": "Confused Cat in Box",
+   "source": "https://media.tenor.com/uf9h8ueOHrYAAAAC/cat-tilt-head.gif"
+  },
+  {
+   "file": "thumbsUp_cat_1.gif",
+   "category": "thumbsUp",
+   "animal": "cat",
+   "title": "Thumbs Up Cat",
+   "source": "https://media.tenor.com/T8p0k0A5TNoAAAAC/sigma.gif"
+  },
+  {
+   "file": "thumbsUp_cat_2.gif",
+   "category": "thumbsUp",
+   "animal": "cat",
+   "title": "Superb Idea Cat",
+   "source": "https://media.tenor.com/_Yx4jX4IqTQAAAAC/superb-idea-superb.gif"
+  },
+  {
+   "file": "thumbsUp_hamster_1.gif",
+   "category": "thumbsUp",
+   "animal": "hamster",
+   "title": "Thumbs Up Hamster",
+   "source": "https://media.tenor.com/lD2hu2osnjAAAAAC/hamster-thumbs-up-hamster-happy.gif"
+  },
+  {
+   "file": "peace_cat_1.gif",
+   "category": "peace",
+   "animal": "cat",
+   "title": "Peace Out Cat",
+   "source": "https://media.tenor.com/8lZSAjKECPwAAAAC/see-you-peace-out-cat.gif"
+  },
+  {
+   "file": "peace_hamster_1.gif",
+   "category": "peace",
+   "animal": "hamster",
+   "title": "Peace Sign Hamster",
+   "source": "https://media.tenor.com/n-r6BGrGxBEAAAAC/juanjo-juanjo-bona.gif"
+  },
+  {
+   "file": "openPalm_cat_1.gif",
+   "category": "openPalm",
+   "animal": "cat",
+   "title": "Stop Paw Kitten",
+   "source": "https://media.tenor.com/d8KlRn-G_VIAAAAC/kitty-stop.gif"
+  },
+  {
+   "file": "openPalm_cat_2.gif",
+   "category": "openPalm",
+   "animal": "cat",
+   "title": "Talk To The Paw Cat",
+   "source": "https://media.tenor.com/omFEJs-LFmcAAAAC/no-talk-to-the-hand.gif"
+  },
+  {
+   "file": "openPalm_hamster_1.gif",
+   "category": "openPalm",
+   "animal": "hamster",
+   "title": "Hamster Waving Hi",
+   "source": "https://media.tenor.com/AJ8hgCTJX6UAAAAC/hamster-hello.gif"
+  },
+  {
+   "file": "pointing_cat_1.gif",
+   "category": "pointing",
+   "animal": "cat",
+   "title": "Pointing Awesome Friend Cat",
+   "source": "https://media.tenor.com/1mBfnDaelJ4AAAAC/ponty.gif"
+  },
+  {
+   "file": "fist_cat_1.gif",
+   "category": "fist",
+   "animal": "cat",
+   "title": "Boxing Cat",
+   "source": "https://media.tenor.com/Bgva7WOotNcAAAAC/catboxing.gif"
+  },
+  {
+   "file": "fist_cat_2.gif",
+   "category": "fist",
+   "animal": "cat",
+   "title": "Fighting Stance Cat",
+   "source": "https://media.tenor.com/uzCw1a_IdXgAAAAC/cat-ai.gif"
+  },
+  {
+   "file": "fist_cat_3.gif",
+   "category": "fist",
+   "animal": "cat",
+   "title": "Street Boxing Cat",
+   "source": "https://media.tenor.com/8G4zl9zH8nAAAAAC/cat-punch-cat.gif"
+  },
+  {
+   "file": "handsUp_cat_1.gif",
+   "category": "handsUp",
+   "animal": "cat",
+   "title": "Screaming Cat",
+   "source": "https://media.tenor.com/W8lPAPMQnU8AAAAC/cat-scared.gif"
+  },
+  {
+   "file": "thinking_cat_1.gif",
+   "category": "thinking",
+   "animal": "cat",
+   "title": "Thinks Thinkingly Cat",
+   "source": "https://media.tenor.com/0kaf56oEq_EAAAAC/thinks-thinking.gif"
+  },
+  {
+   "file": "thinking_cat_2.gif",
+   "category": "thinking",
+   "animal": "cat",
+   "title": "Thinking Cat Chin Paw",
+   "source": "https://media.tenor.com/Cp1FVmqVTN8AAAAC/yokomizo-seishi-yokomizo.gif"
+  },
+  {
+   "file": "thinking_cat_3.gif",
+   "category": "thinking",
+   "animal": "cat",
+   "title": "Thinking Cat Paw",
+   "source": "https://media.tenor.com/IHkcQwK9lRAAAAAC/hmmmmmmm-hmmmmmm.gif"
+  },
+  {
+   "file": "heart_cat_1.gif",
+   "category": "heart",
+   "animal": "cat",
+   "title": "Heart Paws Cat",
+   "source": "https://media.tenor.com/5yh3QvAIQosAAAAC/cat-heart.gif"
+  },
+  {
+   "file": "heart_hamster_1.gif",
+   "category": "heart",
+   "animal": "hamster",
+   "title": "Love Hamster",
+   "source": "https://media.tenor.com/KeUWyYzToxgAAAAC/hamster-cute.gif"
+  },
+  {
+   "file": "heart_hamster_2.gif",
+   "category": "heart",
+   "animal": "hamster",
+   "title": "Heart Hamster",
+   "source": "https://media.tenor.com/L3bZbjM5pScAAAAC/love-miss-you.gif"
+  },
+  {
+   "file": "noFace_hamster_1.gif",
+   "category": "noFace",
+   "animal": "hamster",
+   "title": "We Getting Anywhere Hamster",
+   "source": "https://media.tenor.com/-GcdqZ34CWEAAAAC/hamster-run.gif"
+  },
+  {
+   "file": "noFace_cat_1.gif",
+   "category": "noFace",
+   "animal": "cat",
+   "title": "Cat Waiting By Clock",
+   "source": "https://media.tenor.com/C_mgpf-76XgAAAAC/i-miss-you-hooman.gif"
+  },
+  {
+   "file": "noFace_hamster_2.gif",
+   "category": "noFace",
+   "animal": "hamster",
+   "title": "Hamster Facing Wall",
+   "source": "https://media.tenor.com/bGZIsvoCuRsAAAAC/shock-hamster-hamster.gif"
+  }
+ ]
+}

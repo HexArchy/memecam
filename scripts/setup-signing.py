@@ -121,19 +121,61 @@ def local_identities() -> dict[str, str]:
     return {m.group(1): m.group(2) for m in re.finditer(r"\)\s+([0-9A-F]{40})\s+\"(.+?)\"", out)}
 
 
+def import_identity(key, cert: x509.Certificate):
+    """Imports key + cert into the login keychain via a throwaway-password PKCS#12.
+    macOS `security` only understands legacy PKCS#12 encryption (3DES + SHA-1 MAC)."""
+    password = base64.b64encode(os.urandom(18)).decode()
+    enc = (serialization.PrivateFormat.PKCS12.encryption_builder()
+           .kdf_rounds(50000)
+           .key_cert_algorithm(pkcs12.PBES.PBESv1SHA1And3KeyTripleDESCBC)
+           .hmac_hash(hashes.SHA1())
+           .build(password.encode()))
+    p12 = pkcs12.serialize_key_and_certificates(b"MemeCam Dev", key, cert, None, enc)
+    with tempfile.TemporaryDirectory() as tmp:
+        p = pathlib.Path(tmp) / "dev.p12"
+        p.write_bytes(p12)
+        r = subprocess.run(["security", "import", str(p), "-P", password, "-T", "/usr/bin/codesign",
+                            "-k", str(pathlib.Path.home() / "Library/Keychains/login.keychain-db")],
+                           capture_output=True, text=True)
+        if r.returncode != 0 and "already exists" not in r.stderr:
+            sys.exit(f"security import failed: {r.stderr.strip()}")
+        wwdr = pathlib.Path(tmp) / "wwdr.cer"
+        wwdr.write_bytes(requests.get(WWDR_G3, timeout=60).content)
+        subprocess.run(["security", "import", str(wwdr)], capture_output=True)  # ok if already present
+
+
 def ensure_certificate(asc: ASC) -> tuple[str, str]:
     """Returns (ASC certificate id, SHA-1). Reuses a cert whose key is already local."""
     local = local_identities()
     certs = asc.call("GET", "/certificates?filter[certificateType]=DEVELOPMENT&limit=200")["data"]
-    for c in certs:
-        der = base64.b64decode(c["attributes"]["certificateContent"])
-        sha1 = x509.load_der_x509_certificate(der).fingerprint(hashes.SHA1()).hex().upper()
+    parsed = [(c["id"], x509.load_der_x509_certificate(base64.b64decode(c["attributes"]["certificateContent"])))
+              for c in certs]
+    for cid, cert in parsed:
+        sha1 = cert.fingerprint(hashes.SHA1()).hex().upper()
         if sha1 in local:
             step(f"reusing certificate “{local[sha1]}”")
-            return c["id"], sha1
+            return cid, sha1
+
+    # A key from an interrupted run: finish importing its certificate instead of minting a new one.
+    pending = OUT / "pending-key.pem"
+    if pending.exists():
+        key = serialization.load_pem_private_key(pending.read_bytes(), password=None)
+        pub = key.public_key().public_numbers()
+        for cid, cert in parsed:
+            if cert.public_key().public_numbers() == pub:
+                step("finishing import of certificate from previous run")
+                import_identity(key, cert)
+                pending.unlink()
+                return cid, cert.fingerprint(hashes.SHA1()).hex().upper()
+    else:
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        OUT.mkdir(mode=0o700, exist_ok=True)
+        pending.write_bytes(key.private_bytes(serialization.Encoding.PEM,
+                                              serialization.PrivateFormat.PKCS8,
+                                              serialization.NoEncryption()))
+        pending.chmod(0o600)
 
     step("creating Apple Development certificate")
-    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     csr = (x509.CertificateSigningRequestBuilder()
            .subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "MemeCam Dev"),
                                     x509.NameAttribute(NameOID.EMAIL_ADDRESS, "dev@hexarch.local")]))
@@ -141,23 +183,9 @@ def ensure_certificate(asc: ASC) -> tuple[str, str]:
     csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode()
     data = asc.call("POST", "/certificates", json={"data": {"type": "certificates", "attributes": {
         "certificateType": "DEVELOPMENT", "csrContent": csr_pem}}})["data"]
-    der = base64.b64decode(data["attributes"]["certificateContent"])
-    cert = x509.load_der_x509_certificate(der)
-
-    # Import key + cert into the login keychain via a throwaway-password PKCS#12.
-    password = base64.b64encode(os.urandom(18)).decode()
-    p12 = pkcs12.serialize_key_and_certificates(
-        b"memecam", key, cert, None,
-        serialization.BestAvailableEncryption(password.encode()))
-    with tempfile.TemporaryDirectory() as tmp:
-        p = pathlib.Path(tmp) / "dev.p12"
-        p.write_bytes(p12)
-        subprocess.run(["security", "import", str(p), "-P", password, "-T", "/usr/bin/codesign",
-                        "-k", str(pathlib.Path.home() / "Library/Keychains/login.keychain-db")],
-                       check=True, capture_output=True)
-        wwdr = pathlib.Path(tmp) / "wwdr.cer"
-        wwdr.write_bytes(requests.get(WWDR_G3, timeout=60).content)
-        subprocess.run(["security", "import", str(wwdr)], capture_output=True)  # ok if already present
+    cert = x509.load_der_x509_certificate(base64.b64decode(data["attributes"]["certificateContent"]))
+    import_identity(key, cert)
+    pending.unlink()
     return data["id"], cert.fingerprint(hashes.SHA1()).hex().upper()
 
 
