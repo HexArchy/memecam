@@ -18,20 +18,20 @@ public struct ReactionStabilizer: Sendable {
     private var candidateSince: TimeInterval = 0
     private var window: [(t: TimeInterval, r: Reaction, w: Double)] = []
 
-    public init(minHold: TimeInterval = 0.9, delayScale: Double = 1) {
+    public init(minHold: TimeInterval = 1.2, delayScale: Double = 1) {
         self.minHold = minHold
         self.delayScale = delayScale
     }
 
-    var windowLength: TimeInterval { 0.35 * delayScale }
+    var windowLength: TimeInterval { 0.5 * delayScale }
 
     func enterDelay(for r: Reaction) -> TimeInterval {
         let base: TimeInterval = switch r {
         case .noFace: 1.2
-        case .neutral: 0.5
-        case .eyesClosed: 0.45   // longer than a blink (~0.1–0.4 s)
-        case .thumbsUp, .thumbsDown, .peace, .pointing, .heart, .handsUp: 0.12
-        default: 0.2
+        case .neutral: 0.6
+        case .eyesClosed: 0.6    // well past a blink (~0.1–0.4 s)
+        case .thumbsUp, .thumbsDown, .peace, .pointing, .heart, .handsUp: 0.2
+        default: 0.35
         }
         return base * delayScale
     }

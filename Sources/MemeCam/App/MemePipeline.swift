@@ -26,6 +26,9 @@ struct PipelineStatus: Sendable {
     /// Something is wrong with the camera feed (user-facing text), nil when fine.
     var cameraIssue: String?
     var cameraName = ""
+    /// Guided accuracy test: what the user should show now, and overall progress 0...1.
+    var guidedPrompt: Reaction?
+    var guidedProgress: Double = 0
 }
 
 /// camera → (Vision on its own queue) → classifier → meme → compositor → sinks.
@@ -54,12 +57,24 @@ final class MemePipeline: @unchecked Sendable {
         var memeStart: TimeInterval = 0
         var forcedUntil: TimeInterval = 0
         var calibrateNext = false
+        var guided: (start: TimeInterval, script: GuidedScript, frames: [LabeledFrame])?
         var inferenceMs = 0.0
     }
     private let state = OSAllocatedUnfairLock(initialState: State())
     private let sinksLock = OSAllocatedUnfairLock(initialState: [any FrameSink]())
 
     var onStatus: (@Sendable (PipelineStatus) -> Void)?
+    /// Called (on the vision queue) when a guided accuracy session completes.
+    var onRecordingFinished: (@Sendable (Recording) -> Void)?
+
+    /// Starts a guided accuracy session: prompts every reaction in turn and records
+    /// labelled observations for offline evaluation.
+    func startGuidedSession() {
+        let now = CACurrentMediaTime()
+        state.withLock { $0.guided = (now, GuidedScript(), []) }
+    }
+
+    func cancelGuidedSession() { state.withLock { $0.guided = nil } }
     private var lastStatusTime: TimeInterval = 0
     private var frameTimes: [TimeInterval] = []
 
@@ -133,7 +148,7 @@ final class MemePipeline: @unchecked Sendable {
             s.classifier.config.enableGestures = settings.detectHands
             s.classifier.config.enableExpressions = settings.detectExpressions
             s.stabilizer.delayScale = settings.calmness
-            s.stabilizer.minHold = 0.9 * settings.calmness
+            s.stabilizer.minHold = 1.2 * settings.calmness
             if animalsChanged { s.meme = nil } // re-pick on next frame
         }
         detector.detectHands = settings.detectHands
@@ -188,7 +203,7 @@ final class MemePipeline: @unchecked Sendable {
                 meme: s.memeImage?.frame(at: t),
                 previousMeme: transition < 1 ? s.previousFrame : nil,
                 transition: transition,
-                caption: s.settings.showCaption ? s.meme?.title : nil,
+                caption: Self.guidedCaption(s, now: now) ?? (s.settings.showCaption ? s.meme?.title : nil),
                 layout: s.settings.layout,
                 mirror: s.settings.mirror)
         }
@@ -218,6 +233,17 @@ final class MemePipeline: @unchecked Sendable {
                     s.classifier.beginCalibration() // median of the next 15 face frames
                     s.calibrateNext = false
                 }
+                if let g = s.guided {
+                    if let step = g.script.step(at: now - g.start) {
+                        s.guided?.frames.append(LabeledFrame(label: step.labelled ? step.step.reaction : nil,
+                                                             observation: obs))
+                    } else {
+                        let rec = Recording(camera: camera.currentDeviceName, frames: g.frames)
+                        s.guided = nil
+                        let done = onRecordingFinished
+                        DispatchQueue.global(qos: .utility).async { done?(rec) }
+                    }
+                }
                 let est = s.classifier.classify(obs)
                 s.metrics = est.metrics
                 guard now >= s.forcedUntil else { return }
@@ -228,6 +254,12 @@ final class MemePipeline: @unchecked Sendable {
                 }
             }
         }
+    }
+
+    private static func guidedCaption(_ s: State, now: TimeInterval) -> String? {
+        guard let g = s.guided, let step = g.script.step(at: now - g.start) else { return nil }
+        let what = step.step.reaction == .noFace ? "Leave the frame" : "Show: \(step.step.reaction.title)"
+        return "\(what) · \(Int(step.remaining.rounded(.up)))"
     }
 
     private func setReaction(_ r: Reaction, confidence: Double, now: TimeInterval, in s: inout State,
@@ -267,6 +299,12 @@ final class MemePipeline: @unchecked Sendable {
             PipelineStatus(reaction: s.reaction, confidence: s.confidence, meme: s.meme,
                            metrics: s.metrics, outputFPS: force ? 0 : fps, inferenceMs: s.inferenceMs)
         }
+        let guided: (Reaction, Double)? = state.withLock { s in
+            guard let g = s.guided, let step = g.script.step(at: now - g.start) else { return nil }
+            return (step.step.reaction, (now - g.start) / g.script.totalDuration)
+        }
+        status.guidedPrompt = guided?.0
+        status.guidedProgress = guided?.1 ?? 0
         status.cameraIssue = cameraIssue
         status.cameraName = camera.currentDeviceName
         onStatus(status)

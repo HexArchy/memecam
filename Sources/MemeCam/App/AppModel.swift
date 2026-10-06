@@ -40,6 +40,38 @@ final class AppModel {
     /// All memes for a reaction regardless of the filter (for editing).
     func allMemes(for r: Reaction) -> [Meme] { _ = libraryRevision; return pipeline.library.memes(for: r) }
     func hiddenDefaultsCount(for r: Reaction) -> Int { _ = libraryRevision; return pipeline.library.hiddenCount(for: r) }
+    /// Report of the last guided accuracy test (multi-line text).
+    private(set) var lastEvaluation: String?
+    private(set) var lastRecordingURL: URL?
+    var isGuidedSessionRunning: Bool { status.guidedPrompt != nil }
+
+    /// ~90 s guided test: shows every reaction prompt, records, then scores the detector on you.
+    func startAccuracyTest() {
+        if cameraState != .running { start() }
+        lastEvaluation = nil
+        pipeline.startGuidedSession()
+    }
+
+    func cancelAccuracyTest() { pipeline.cancelGuidedSession() }
+
+    func revealRecordings() {
+        let dir = Self.recordingsDirectory
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(dir)
+    }
+
+    nonisolated static let recordingsDirectory = URL.applicationSupportDirectory.appending(path: "MemeCam/Recordings")
+
+    nonisolated private static func save(_ rec: Recording) -> URL? {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        guard let data = try? encoder.encode(rec) else { return nil }
+        try? FileManager.default.createDirectory(at: recordingsDirectory, withIntermediateDirectories: true)
+        let name = ISO8601DateFormatter().string(from: rec.createdAt).replacingOccurrences(of: ":", with: "-")
+        let url = recordingsDirectory.appending(path: "\(name).json")
+        return (try? data.write(to: url)) != nil ? url : nil
+    }
+
     /// Last library error, for an alert.
     var libraryError: String?
 
@@ -96,6 +128,14 @@ final class AppModel {
         pipeline.addSink(virtualCamera.sink)
         pipeline.onStatus = { [weak self] status in
             Task { @MainActor in self?.status = status }
+        }
+        pipeline.onRecordingFinished = { [weak self] rec in
+            let url = AppModel.save(rec)
+            let report = Evaluator().evaluate(rec).summary
+            Task { @MainActor in
+                self?.lastRecordingURL = url
+                self?.lastEvaluation = report
+            }
         }
         refreshCameras()
         virtualCamera.refresh()

@@ -47,6 +47,8 @@ struct SettingsForm: View {
                 Label("Picture", systemImage: "rectangle.on.rectangle")
             }
 
+            AccuracySection()
+
             Section {
                 DisclosureGroup("Diagnostics", isExpanded: $debugExpanded) {
                     DebugRows(status: model.status)
@@ -83,5 +85,40 @@ private struct DebugRows: View {
     private func row(_ title: String, _ value: String) -> some View {
         LabeledContent(title) { Text(value).monospacedDigit() }
             .font(.callout)
+    }
+}
+
+/// Guided ~90 s test that measures how well detection works on *this* user.
+private struct AccuracySection: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        Section {
+            if model.isGuidedSessionRunning, let prompt = model.status.guidedPrompt {
+                LabeledContent("Now show") {
+                    Label(prompt.title, systemImage: prompt.displaySymbol)
+                        .font(.headline)
+                }
+                ProgressView(value: model.status.guidedProgress)
+                Button("Cancel Test", role: .cancel) { model.cancelAccuracyTest() }
+            } else {
+                Button("Run Accuracy Test…", systemImage: "checklist") { model.startAccuracyTest() }
+                if let report = model.lastEvaluation {
+                    ScrollView(.horizontal) {
+                        Text(report)
+                            .font(.caption.monospaced())
+                            .textSelection(.enabled)
+                            .fixedSize()
+                    }
+                    Button("Show Recordings in Finder", systemImage: "folder") { model.revealRecordings() }
+                }
+            }
+        } header: {
+            Label("Accuracy", systemImage: "scope")
+        } footer: {
+            Text("Follow the prompts in the preview (about 90 s). MemeCam records what it sees and scores itself on your face.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
     }
 }

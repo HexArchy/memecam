@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import Testing
 @testable import MemeCamCore
 
@@ -91,8 +92,8 @@ private func classify(_ lm: FaceLandmarks?, hands: [HandPose] = [], _ c: inout R
     #expect(classify(face(mouthOpen: 0.07, smileWiden: 0.03), &c) == .laugh)
     #expect(classify(face(smileWiden: 0.03), &c) == .smile)
     #expect(classify(face(eyeHeight: 0.005), &c) == .eyesClosed)
-    #expect(classify(face(browY: 0.66), &c) == .eyebrowsRaised)
-    #expect(classify(face(cornerLift: -0.015), &c) == .sad)
+    #expect(classify(face(browY: 0.67), &c) == .eyebrowsRaised)
+    #expect(classify(face(cornerLift: -0.025), &c) == .sad)   // strong AU15 alone
     #expect(classify(face(roll: 0.45), &c) == .headTilt)
 }
 
@@ -223,10 +224,44 @@ private func turned(_ lm: FaceLandmarks, yaw: Double) -> FaceLandmarks {
     var c = ReactionClassifier()
     c.calibrate(to: try #require(FaceMetrics(face())))
     // Mild corner drop alone (resting / talking mouth) is not sad.
-    #expect(classify(face(cornerLift: -0.009), &c) == .neutral)
+    #expect(classify(face(cornerLift: -0.013), &c) == .neutral)
     // Same drop with inner brows raised (AU1) is sad.
-    var lm = face(cornerLift: -0.009)
+    var lm = face(cornerLift: -0.013)
     lm.leftBrow = [CGPoint(x: 0.37, y: 0.64), CGPoint(x: 0.43, y: 0.655)]
     lm.rightBrow = [CGPoint(x: 0.57, y: 0.655), CGPoint(x: 0.63, y: 0.64)]
     #expect(classify(lm, &c) == .sad)
+}
+
+@Test func evaluatorScoresAScriptedRecording() throws {
+    let script = GuidedScript(steps: [.init(reaction: .neutral, duration: 3), .init(reaction: .surprised, duration: 3),
+                                      .init(reaction: .neutral, duration: 3)])
+    var frames: [LabeledFrame] = []
+    var t = 0.0
+    while let s = script.step(at: t) {
+        let lm = s.step.reaction == .surprised ? face(mouthOpen: 0.07) : face()
+        frames.append(LabeledFrame(label: s.labelled ? s.step.reaction : nil,
+                                   observation: FrameObservation(timestamp: t, face: lm, hands: [])))
+        t += 1.0 / 30
+    }
+    let report = Evaluator().evaluate(Recording(camera: "test", frames: frames))
+    #expect(report.macroF1 > 0.95)
+    #expect(report.falseSwitchesPerMinute < 1)
+    let surprised = try #require(report.classes.first { $0.reaction == .surprised })
+    #expect(surprised.shownRatio > 0.8)
+}
+
+/// Replays real recordings dropped into Tests/Fixtures (skipped when none exist).
+@Test func realRecordingsMeetQualityBar() throws {
+    let dir = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appending(path: "Fixtures")
+    let files = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? []
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    for file in files where file.pathExtension == "json" {
+        let rec = try decoder.decode(Recording.self, from: Data(contentsOf: file))
+        let report = Evaluator().evaluate(rec)
+        print("\(file.lastPathComponent):\n\(report.summary)")
+        #expect(report.macroF1 >= 0.75, "\(file.lastPathComponent)")
+        #expect(report.falseSwitchesPerMinute <= 1, "\(file.lastPathComponent)")
+    }
 }

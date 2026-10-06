@@ -31,7 +31,7 @@ public struct ReactionClassifier: Sendable {
     public struct Config: Sendable, Equatable {
         /// 0.5 = needs exaggerated expressions, 1.5 = very sensitive.
         public var sensitivity: Double = 1.0
-        public var tiltDegrees: Double = 18
+        public var tiltDegrees: Double = 22
         /// Beyond this head yaw/pitch (radians) expressions are not judged.
         public var maxHeadTurn: Double = 0.45
         /// Brow-based reactions (eyebrows raised, sad) are fragile under pose; stricter limit.
@@ -145,7 +145,9 @@ public struct ReactionClassifier: Sendable {
     private func classifyGestures(_ hands: [HandPose], faceBox: CGRect?) -> (Reaction, Double)? {
         // Ignore tiny "hands" (background clutter, far-away people).
         let minPalm = faceBox.map { Double($0.height) * 0.25 } ?? 0.06
-        let shaped = hands.compactMap { h in HandShape(h).map { (h, $0) } }.filter { $0.1.palmSize >= minPalm }
+        // Low Vision confidence = partial/blurred/false hands; they cause most spurious gestures.
+        let shaped = hands.filter { $0.confidence >= 0.5 }
+            .compactMap { h in HandShape(h).map { (h, $0) } }.filter { $0.1.palmSize >= minPalm }
         guard !shaped.isEmpty else { return nil }
 
         if shaped.count >= 2 {
@@ -205,15 +207,15 @@ public struct ReactionClassifier: Sendable {
         let widthRatio = m.mouthWidth / max(b.mouthWidth, 1e-3)
         let eyeRatio = m.eyeOpen / max(b.eyeOpen, 1e-3)
         var s = ExpressionScores()
-        s.open = (m.mouthOpen - b.mouthOpen) / (0.18 * k)
-        s.smile = max((widthRatio - 1) / (0.10 * k), (m.cornerLift - b.cornerLift) / (0.045 * k))
-        s.eyesClosed = (1 - eyeRatio) / (0.45 * min(k, 1.6))
-        s.brows = (m.browRaise - b.browRaise) / (0.07 * k)
-        s.au1 = (m.innerBrowRaise - b.innerBrowRaise) / (0.04 * k)
-        s.au4 = (1 - m.browGap / max(b.browGap, 1e-3)) / (0.08 * k)
+        s.open = (m.mouthOpen - b.mouthOpen) / (0.25 * k)
+        s.smile = max((widthRatio - 1) / (0.14 * k), (m.cornerLift - b.cornerLift) / (0.06 * k))
+        s.eyesClosed = (1 - eyeRatio) / (0.55 * min(k, 1.4))
+        s.brows = (m.browRaise - b.browRaise) / (0.10 * k)
+        s.au1 = (m.innerBrowRaise - b.innerBrowRaise) / (0.05 * k)
+        s.au4 = (1 - m.browGap / max(b.browGap, 1e-3)) / (0.10 * k)
         // Sadness = lip-corner depressor (AU15) with AU1 or AU4 — corners alone are too often
         // just a resting mouth or talking. A very strong AU15 alone still counts.
-        let corners = -(m.cornerLift - b.cornerLift) / (0.04 * k)
+        let corners = -(m.cornerLift - b.cornerLift) / (0.055 * k)
         let browSupport = max(s.au1, s.au4)
         s.sad = corners >= 1 && browSupport >= 0.6 ? (corners + browSupport) / 2
             : corners >= 1.8 ? corners * 0.75 : 0
@@ -225,15 +227,20 @@ public struct ReactionClassifier: Sendable {
         var s = scores(m)
         if !browsReliable { s.brows = 0; s.sad = 0 }
         var candidates: [(Reaction, Double)] = []
-        if s.open >= 1 {
-            // Open mouth: laugh if also smiling, else surprise. Raised brows are part of surprise.
-            candidates.append(s.smile >= 1 ? (.laugh, (s.open + s.smile) / 2) : (.surprised, s.open))
+        // Smiling widens the mouth, which lowers the (height / width) open ratio — so a laugh
+        // needs only 70% of the open threshold when the smile is clear.
+        let laughing = s.smile >= 1 && s.open >= 0.7
+        if laughing {
+            candidates.append((.laugh, (s.open / 0.7 + s.smile) / 2))
+        } else if s.open >= 1 {
+            // Open mouth without a smile = surprise. Raised brows are part of surprise.
+            candidates.append((.surprised, s.open))
         } else {
             candidates.append((.smile, s.smile))
             candidates.append((.sad, s.smile < 0.5 ? s.sad : 0))
         }
         candidates.append((.eyesClosed, s.eyesClosed))
-        candidates.append((.eyebrowsRaised, s.open >= 1 ? 0 : s.brows))
+        candidates.append((.eyebrowsRaised, s.open >= 1 || laughing ? 0 : s.brows))
         candidates.append((.headTilt, s.tilt))
 
         // Hysteresis: the reaction already shown needs only 80% of its threshold to stay.

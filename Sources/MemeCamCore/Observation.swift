@@ -6,7 +6,7 @@ import Foundation
 /// where aspect = imageWidth / imageHeight. Distances are therefore isotropic.
 
 /// Face landmark regions extracted from Vision, already converted to aspect space.
-public struct FaceLandmarks: Sendable, Equatable {
+public struct FaceLandmarks: Sendable, Equatable, Codable {
     public var boundingBox: CGRect
     public var leftEye: [CGPoint]
     public var rightEye: [CGPoint]
@@ -37,7 +37,7 @@ public struct FaceLandmarks: Sendable, Equatable {
 }
 
 /// Hand joints, mirroring `VNHumanHandPoseObservation.JointName`.
-public enum HandJoint: String, CaseIterable, Sendable {
+public enum HandJoint: String, CaseIterable, Sendable, Codable, CodingKeyRepresentable {
     case wrist
     case thumbCMC, thumbMP, thumbIP, thumbTip
     case indexMCP, indexPIP, indexDIP, indexTip
@@ -46,7 +46,7 @@ public enum HandJoint: String, CaseIterable, Sendable {
     case littleMCP, littlePIP, littleDIP, littleTip
 }
 
-public struct HandPose: Sendable, Equatable {
+public struct HandPose: Sendable, Equatable, Codable {
     /// Only joints with sufficient confidence are present. Aspect space.
     public var joints: [HandJoint: CGPoint]
     public var confidence: Double
@@ -73,7 +73,7 @@ public struct HandPose: Sendable, Equatable {
 }
 
 /// Everything the detector saw in one frame.
-public struct FrameObservation: Sendable {
+public struct FrameObservation: Sendable, Codable {
     public var timestamp: TimeInterval
     public var face: FaceLandmarks?
     public var hands: [HandPose]
