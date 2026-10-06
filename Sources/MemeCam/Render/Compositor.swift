@@ -107,6 +107,18 @@ final class Compositor: @unchecked Sendable {
         return out
     }
 
+    /// Mean brightness 0...1 of an image (GPU reduction to 1 px). Used to detect black cameras.
+    func averageBrightness(_ image: CIImage) -> Double {
+        let f = CIFilter.areaAverage()
+        f.inputImage = image
+        f.extent = image.extent
+        guard let out = f.outputImage else { return 1 }
+        var px = [UInt8](repeating: 0, count: 4)
+        context.render(out, toBitmap: &px, rowBytes: 4, bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+                       format: .RGBA8, colorSpace: nil)
+        return (Double(px[0]) * 0.3 + Double(px[1]) * 0.59 + Double(px[2]) * 0.11) / 255
+    }
+
     // MARK: - Pieces
 
     private func memeImage(_ input: CompositorInput) -> CIImage? {

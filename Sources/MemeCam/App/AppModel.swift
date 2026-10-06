@@ -19,7 +19,7 @@ final class AppModel {
     var sensitivity: Double = 1 { didSet { persistAndPush() } }
     /// 0.5 (snappy) ... 2 (calm)
     var calmness: Double = 1 { didSet { persistAndPush() } }
-    var showCaption = true { didSet { persistAndPush() } }
+    var showCaption = false { didSet { persistAndPush() } }
     var mirror = true { didSet { persistAndPush() } }
     var detectHands = true { didSet { persistAndPush() } }
     var detectExpressions = true { didSet { persistAndPush() } }
@@ -116,7 +116,7 @@ final class AppModel {
         defaults.set(animals.rawValue, forKey: "animals")
         defaults.set(sensitivity, forKey: "sensitivity")
         defaults.set(calmness, forKey: "calmness")
-        defaults.set(showCaption, forKey: "showCaption")
+        defaults.set(showCaption, forKey: "showCaptionV2")
         defaults.set(mirror, forKey: "mirror")
         defaults.set(detectHands, forKey: "detectHands")
         defaults.set(detectExpressions, forKey: "detectExpressions")
@@ -128,7 +128,7 @@ final class AppModel {
         if let v = defaults.string(forKey: "animals").flatMap(AnimalFilter.init) { animals = v }
         if defaults.object(forKey: "sensitivity") != nil { sensitivity = defaults.double(forKey: "sensitivity") }
         if defaults.object(forKey: "calmness") != nil { calmness = defaults.double(forKey: "calmness") }
-        if defaults.object(forKey: "showCaption") != nil { showCaption = defaults.bool(forKey: "showCaption") }
+        if defaults.object(forKey: "showCaptionV2") != nil { showCaption = defaults.bool(forKey: "showCaptionV2") }
         if defaults.object(forKey: "mirror") != nil { mirror = defaults.bool(forKey: "mirror") }
         if defaults.object(forKey: "detectHands") != nil { detectHands = defaults.bool(forKey: "detectHands") }
         if defaults.object(forKey: "detectExpressions") != nil { detectExpressions = defaults.bool(forKey: "detectExpressions") }

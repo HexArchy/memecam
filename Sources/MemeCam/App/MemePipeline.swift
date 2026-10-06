@@ -9,7 +9,7 @@ struct PipelineSettings: Sendable, Equatable {
     var sensitivity: Double = 1
     /// 0.5 = snappy, 2 = calm.
     var calmness: Double = 1
-    var showCaption = true
+    var showCaption = false
     var mirror = true
     var detectHands = true
     var detectExpressions = true
@@ -23,6 +23,9 @@ struct PipelineStatus: Sendable {
     var metrics: FaceMetrics?
     var outputFPS: Double = 0
     var inferenceMs: Double = 0
+    /// Something is wrong with the camera feed (user-facing text), nil when fine.
+    var cameraIssue: String?
+    var cameraName = ""
 }
 
 /// camera → (Vision on its own queue) → classifier → meme → compositor → sinks.
@@ -60,16 +63,63 @@ final class MemePipeline: @unchecked Sendable {
     private var lastStatusTime: TimeInterval = 0
     private var frameTimes: [TimeInterval] = []
 
+    private var lastFrameTime: TimeInterval = 0
+    private var darkSince: TimeInterval?
+    private var lastBrightnessCheck: TimeInterval = 0
+    private var sessionProblem: String?
+    private var darkFeed = false
+    private var running = false
+
     init() {
         camera.onFrame = { [weak self] in self?.handle($0) }
+        camera.onProblem = { [weak self] problem in
+            // Notifications arrive on arbitrary threads; state lives on the capture queue.
+            self?.camera.queue.async { self?.sessionProblem = problem }
+        }
         // Prefetch the "nobody here" meme so the first frame already has something.
         library.prefetch(library.memes(for: .noFace))
     }
 
     // MARK: Control
 
-    func start(deviceID: String?) throws { try camera.start(deviceID: deviceID) }
-    func stop() { camera.stop() }
+    func start(deviceID: String?) throws {
+        camera.queue.sync {
+            sessionProblem = nil
+            darkFeed = false
+            darkSince = nil
+            lastFrameTime = CACurrentMediaTime()
+        }
+        try camera.start(deviceID: deviceID)
+        running = true
+        startWatchdog()
+    }
+
+    func stop() {
+        running = false
+        camera.stop()
+    }
+
+    /// Reports "no frames" while the camera is supposed to run (e.g. a sleeping iPhone).
+    private func startWatchdog() {
+        camera.queue.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self, running else { return }
+            if CACurrentMediaTime() - lastFrameTime > 3 { publishStatus(now: CACurrentMediaTime(), force: true) }
+            startWatchdog()
+        }
+    }
+
+    private var cameraIssue: String? {
+        if let sessionProblem { return sessionProblem }
+        if running, CACurrentMediaTime() - lastFrameTime > 3 {
+            return "\(camera.currentDeviceName) isn't sending video. If it's an iPhone, lock it and place it nearby "
+                + "in landscape, or pick another camera."
+        }
+        if darkFeed {
+            return "\(camera.currentDeviceName) shows a black picture. Check the lens cover, lighting, "
+                + "or that your iPhone is awake and nearby."
+        }
+        return nil
+    }
 
     func addSink(_ sink: any FrameSink) { sinksLock.withLock { $0.append(sink) } }
     func removeSink(_ sink: any FrameSink) { sinksLock.withLock { $0.removeAll { $0 === sink } } }
@@ -108,6 +158,14 @@ final class MemePipeline: @unchecked Sendable {
         runVisionIfIdle(pixelBuffer, now: now)
 
         let cameraImage = CIImage(cvPixelBuffer: pixelBuffer)
+        lastFrameTime = now
+        if now - lastBrightnessCheck > 1 {
+            lastBrightnessCheck = now
+            let dark = compositor.averageBrightness(
+                cameraImage.transformed(by: CGAffineTransform(scaleX: 0.05, y: 0.05))) < 0.03
+            darkSince = dark ? (darkSince ?? now) : nil
+            darkFeed = darkSince.map { now - $0 > 2.5 } ?? false
+        }
         let input: CompositorInput = state.withLock { s in
             if s.meme == nil { setReaction(s.reaction, confidence: s.confidence, now: now, in: &s) }
             let t = now - s.memeStart
@@ -183,16 +241,20 @@ final class MemePipeline: @unchecked Sendable {
         }
     }
 
-    private func publishStatus(now: TimeInterval) {
-        frameTimes.append(now)
-        if frameTimes.count > 30 { frameTimes.removeFirst(frameTimes.count - 30) }
-        guard now - lastStatusTime > 0.1, let onStatus else { return }
+    private func publishStatus(now: TimeInterval, force: Bool = false) {
+        if !force {
+            frameTimes.append(now)
+            if frameTimes.count > 30 { frameTimes.removeFirst(frameTimes.count - 30) }
+        }
+        guard force || now - lastStatusTime > 0.1, let onStatus else { return }
         lastStatusTime = now
         let fps = frameTimes.count > 1 ? Double(frameTimes.count - 1) / (frameTimes.last! - frameTimes.first!) : 0
-        let status = state.withLock { s in
+        var status = state.withLock { s in
             PipelineStatus(reaction: s.reaction, confidence: s.confidence, meme: s.meme,
-                           metrics: s.metrics, outputFPS: fps, inferenceMs: s.inferenceMs)
+                           metrics: s.metrics, outputFPS: force ? 0 : fps, inferenceMs: s.inferenceMs)
         }
+        status.cameraIssue = cameraIssue
+        status.cameraName = camera.currentDeviceName
         onStatus(status)
     }
 }

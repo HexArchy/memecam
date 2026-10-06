@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#FFC56E"/>
+      <stop offset="0.55" stop-color="#FF8A5C"/>
+      <stop offset="1" stop-color="#F2507B"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.3" r="0.7">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="fur" cx="0.5" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#F9C786"/>
+      <stop offset="1" stop-color="#E3974A"/>
+    </radialGradient>
+    <radialGradient id="rec" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0" stop-color="#FF7A7A"/>
+      <stop offset="1" stop-color="#E0182F"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#7A1F2E" flood-opacity="0.35"/>
+    </filter>
+    <filter id="iconShadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+    <clipPath id="squircle">
+      <rect x="100" y="100" width="824" height="824" rx="186" ry="186"/>
+    </clipPath>
+  </defs>
+
+  <!-- macOS icon plate -->
+  <g filter="url(#iconShadow)">
+    <rect x="100" y="100" width="824" height="824" rx="186" ry="186" fill="url(#bg)"/>
+  </g>
+
+  <g clip-path="url(#squircle)">
+    <rect x="100" y="100" width="824" height="824" fill="url(#glow)"/>
+
+    <!-- viewfinder brackets (behind the hamster: it pops out of the frame) -->
+    <g fill="none" stroke="#FFFFFF" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
+      <path d="M206 326 V 252 Q 206 206 252 206 H 326"/>
+      <path d="M698 206 H 772 Q 818 206 818 252 V 326"/>
+      <path d="M206 698 V 772 Q 206 818 252 818 H 326"/>
+      <path d="M818 698 V 772 Q 818 818 772 818 H 698"/>
+    </g>
+
+
+    <!-- Hamster -->
+    <g filter="url(#shadow)">
+      <!-- ears -->
+      <circle cx="338" cy="438" r="78" fill="#E3974A"/>
+      <circle cx="686" cy="438" r="78" fill="#E3974A"/>
+      <circle cx="342" cy="444" r="44" fill="#F6B9B4"/>
+      <circle cx="682" cy="444" r="44" fill="#F6B9B4"/>
+      <!-- head/body -->
+      <ellipse cx="512" cy="672" rx="292" ry="250" fill="url(#fur)"/>
+      <!-- muzzle -->
+      <ellipse cx="512" cy="738" rx="178" ry="138" fill="#FFF3E2"/>
+      <!-- forehead stripe -->
+      <path d="M512 470 C 500 505, 500 540, 512 566 C 524 540, 524 505, 512 470 Z" fill="#FFF3E2" opacity="0.55"/>
+    </g>
+
+    <!-- shocked eyes -->
+    <ellipse cx="420" cy="620" rx="44" ry="52" fill="#2B1B1E"/>
+    <ellipse cx="604" cy="620" rx="44" ry="52" fill="#2B1B1E"/>
+    <circle cx="436" cy="600" r="16" fill="#FFFFFF"/>
+    <circle cx="620" cy="600" r="16" fill="#FFFFFF"/>
+    <circle cx="406" cy="642" r="7" fill="#FFFFFF" opacity="0.8"/>
+    <circle cx="590" cy="642" r="7" fill="#FFFFFF" opacity="0.8"/>
+
+    <!-- cheeks -->
+    <ellipse cx="352" cy="712" rx="50" ry="30" fill="#FF8FA0" opacity="0.65"/>
+    <ellipse cx="672" cy="712" rx="50" ry="30" fill="#FF8FA0" opacity="0.65"/>
+
+    <!-- nose, teeth, open mouth -->
+    <ellipse cx="512" cy="690" rx="20" ry="13" fill="#E8657A"/>
+    <path d="M512 703 L512 722" stroke="#C9846A" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="512" cy="770" rx="30" ry="40" fill="#5B2430"/>
+    <rect x="496" y="728" width="32" height="24" rx="6" fill="#FFFFFF"/>
+    <path d="M512 728 L512 752" stroke="#E7D9CF" stroke-width="3"/>
+
+    <!-- paws -->
+    <ellipse cx="424" cy="868" rx="54" ry="34" fill="#FBE0C2"/>
+    <ellipse cx="600" cy="868" rx="54" ry="34" fill="#FBE0C2"/>
+  </g>
+
+  <!-- REC dot -->
+  <circle cx="512" cy="262" r="30" fill="url(#rec)" stroke="#FFFFFF" stroke-width="8"/>
+</svg>

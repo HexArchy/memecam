@@ -88,6 +88,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 	<key>LSApplicationCategoryType</key><string>public.app-category.entertainment</string>
 	<key>NSHighResolutionCapable</key><true/>
 	<key>NSPrincipalClass</key><string>NSApplication</string>
+	<key>NSCameraUseContinuityCameraDeviceType</key><true/>
 	<key>NSCameraUsageDescription</key><string>MemeCam watches your face and hands to pick a matching meme.</string>
 	<key>NSSystemExtensionUsageDescription</key><string>MemeCam installs a virtual camera named “MemeCam” that Discord, Telegram and other apps can use.</string>
 	$ICON_KEY

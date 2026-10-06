@@ -5,7 +5,7 @@ import SwiftUI
 /// Grid of every reaction with its first meme; click to preview it in the output.
 struct MemeGalleryView: View {
     @Environment(AppModel.self) private var model
-    private let columns = [GridItem(.adaptive(minimum: 110, maximum: 160), spacing: 10)]
+    private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
 
     var body: some View {
         ScrollView {
@@ -30,8 +30,10 @@ private struct GalleryCell: View {
     var body: some View {
         Button { model.trigger(reaction) } label: {
             VStack(spacing: 6) {
-                MemeThumbnail(url: memes.first?.url, symbol: reaction.symbol)
+                // Square sized by the column only; the image never affects layout.
+                Color.clear
                     .aspectRatio(1, contentMode: .fit)
+                    .overlay { MemeThumbnail(url: memes.first?.url, symbol: reaction.symbol) }
                     .clipShape(.rect(cornerRadius: 10))
                     .overlay(alignment: .topTrailing) {
                         if memes.count > 1 {
@@ -45,8 +47,11 @@ private struct GalleryCell: View {
                 Text(reaction.title)
                     .font(.caption)
                     .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity)
             }
             .padding(6)
+            .frame(maxWidth: .infinity)
             .background(isCurrent ? AnyShapeStyle(.tint.opacity(0.18)) : AnyShapeStyle(.quaternary.opacity(0.4)),
                         in: .rect(cornerRadius: 14))
             .overlay {
@@ -72,9 +77,12 @@ private struct MemeThumbnail: View {
         ZStack {
             Rectangle().fill(.quaternary)
             if let image {
-                Image(decorative: image, scale: 1)
-                    .resizable()
-                    .scaledToFill()
+                Color.clear.overlay {
+                    Image(decorative: image, scale: 1)
+                        .resizable()
+                        .scaledToFill()
+                }
+                .clipped()
             } else {
                 Image(systemName: symbol)
                     .font(.title2)
