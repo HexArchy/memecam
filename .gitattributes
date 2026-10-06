@@ -1,0 +1,8 @@
+*.gif  binary
+*.png  binary
+*.jpg  binary
+*.icns binary
+Resources/Models/*.json linguist-generated=true
+Resources/Memes/memes.json linguist-generated=false
+.claude/** linguist-documentation=true
+docs/** linguist-documentation=true

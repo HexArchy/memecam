@@ -5,7 +5,7 @@ import ImageIO
 
 let root = URL(filePath: FileManager.default.currentDirectoryPath)
 let size = NSSize(width: 1280, height: 640)
-let scale: CGFloat = 2
+let scale: CGFloat = 1 // 1280×640: GitHub social previews must stay under 1 MB
 
 func load(_ path: String) -> NSImage {
     guard let img = NSImage(contentsOf: root.appending(path: path)) else { fatalError("missing \(path)") }

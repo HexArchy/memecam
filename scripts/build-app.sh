@@ -16,7 +16,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_ID="com.hexarch.memecam"
 EXT_ID="com.hexarch.memecam.camera-extension"
-SHORT_VERSION="1.0"
+SHORT_VERSION="1.0.0"
 # Monotonic, period-separated integers: sysextd replaces the extension only when this grows.
 BUILD_NUMBER="$(date +%Y%m%d).$(date +%H%M%S)"
 MIN_MACOS="15.0"
