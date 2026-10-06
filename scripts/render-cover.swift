@@ -1,6 +1,7 @@
 // Renders the README / GitHub social-preview cover: Resources/Branding/cover.png (1280×640).
 // Usage: swift scripts/render-cover.swift
 import AppKit
+import ImageIO
 
 let root = URL(filePath: FileManager.default.currentDirectoryPath)
 let size = NSSize(width: 1280, height: 640)
@@ -58,8 +59,15 @@ for chip in ["Apple Vision", "30 FPS", "Virtual Camera", "macOS 26"] {
 }
 
 // Meme polaroids (first frame of bundled GIFs).
+/// Middle frame of an animated GIF (first frames are often fades or black).
+func middleFrame(_ path: String) -> NSImage {
+    guard let src = CGImageSourceCreateWithURL(root.appending(path: path) as CFURL, nil),
+          let cg = CGImageSourceCreateImageAtIndex(src, CGImageSourceGetCount(src) / 2, nil) else { return load(path) }
+    return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+}
+
 func polaroid(_ path: String, caption: String, center: NSPoint, angle: CGFloat) {
-    let img = load(path)
+    let img = middleFrame(path)
     let photo = NSSize(width: 300, height: 300)
     let card = NSRect(x: -photo.width / 2 - 16, y: -photo.height / 2 - 56, width: photo.width + 32, height: photo.height + 72)
     ctx.saveGState()
@@ -85,8 +93,8 @@ func polaroid(_ path: String, caption: String, center: NSPoint, angle: CGFloat) 
     ctx.restoreGState()
 }
 
-polaroid("Resources/Memes/surprised_hamster_1.gif", caption: "😮  surprised", center: NSPoint(x: 860, y: 330), angle: 7)
-polaroid("Resources/Memes/thumbsUp_cat_1.gif", caption: "👍  thumbs up", center: NSPoint(x: 1110, y: 300), angle: -6)
+polaroid("Resources/Memes/surprised_cat_1.gif", caption: "😮  surprised", center: NSPoint(x: 790, y: 335), angle: 7)
+polaroid("Resources/Memes/thumbsUp_cat_1.gif", caption: "👍  thumbs up", center: NSPoint(x: 1085, y: 300), angle: -6)
 
 NSGraphicsContext.restoreGraphicsState()
 let out = root.appending(path: "Resources/Branding/cover.png")

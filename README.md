@@ -1,3 +1,5 @@
+<p align="center"><img src="Resources/Branding/cover.png" alt="MemeCam" width="100%"></p>
+
 # MemeCam
 
 Native macOS app that watches your face and hands and shows a matching cat/hamster meme next to your camera.
