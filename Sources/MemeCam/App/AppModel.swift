@@ -32,8 +32,55 @@ final class AppModel {
     private(set) var status = PipelineStatus()
     private(set) var isCalibrated = false
 
-    var memes: [Meme] { pipeline.library.memes }
-    func memes(for r: Reaction) -> [Meme] { pipeline.library.memes(for: r, filter: animals) }
+    /// Bumped whenever the meme library changes, so views re-read it.
+    private(set) var libraryRevision = 0
+    var memes: [Meme] { _ = libraryRevision; return pipeline.library.memes }
+    /// Memes for a reaction, respecting the animal filter.
+    func memes(for r: Reaction) -> [Meme] { _ = libraryRevision; return pipeline.library.memes(for: r, filter: animals) }
+    /// All memes for a reaction regardless of the filter (for editing).
+    func allMemes(for r: Reaction) -> [Meme] { _ = libraryRevision; return pipeline.library.memes(for: r) }
+    func hiddenDefaultsCount(for r: Reaction) -> Int { _ = libraryRevision; return pipeline.library.hiddenCount(for: r) }
+    /// Last library error, for an alert.
+    var libraryError: String?
+
+    // MARK: Meme customisation
+
+    /// Adds images/GIFs (from a file picker or drag & drop) to a reaction.
+    func addMemes(_ urls: [URL], to reaction: Reaction) {
+        for url in urls {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            do { try pipeline.library.add(fileAt: url, to: reaction) } catch { libraryError = error.localizedDescription }
+        }
+        libraryChanged(showing: reaction)
+    }
+
+    func removeMeme(_ meme: Meme) {
+        do { try pipeline.library.remove(meme) } catch { libraryError = error.localizedDescription }
+        libraryChanged()
+    }
+
+    func moveMeme(_ meme: Meme, to reaction: Reaction) {
+        do { try pipeline.library.reassign(meme, to: reaction) } catch { libraryError = error.localizedDescription }
+        libraryChanged()
+    }
+
+    func restoreDefaultMemes(for reaction: Reaction) {
+        do { try pipeline.library.restoreDefaults(for: reaction) } catch { libraryError = error.localizedDescription }
+        libraryChanged()
+    }
+
+    func revealUserMemesFolder() {
+        let dir = pipeline.library.userDirectory
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(dir)
+    }
+
+    private func libraryChanged(showing reaction: Reaction? = nil) {
+        libraryRevision += 1
+        pipeline.libraryChanged()
+        if let reaction, cameraState == .running { pipeline.force(reaction) } // instant preview of the new meme
+    }
 
     let preview = PreviewSink()
     let virtualCamera = VirtualCameraController()

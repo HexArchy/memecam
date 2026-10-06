@@ -258,6 +258,48 @@
    "animal": "hamster",
    "title": "Hamster Facing Wall",
    "source": "https://media.tenor.com/bGZIsvoCuRsAAAAC/shock-hamster-hamster.gif"
+  },
+  {
+   "file": "laugh_cat_1.gif",
+   "category": "laugh",
+   "animal": "cat",
+   "title": "Laughing Cat",
+   "source": "https://media.tenor.com/aGdYBX9_DTgAAAAC/cat-laugh-cat-laughing.gif"
+  },
+  {
+   "file": "laugh_hamster_1.gif",
+   "category": "laugh",
+   "animal": "hamster",
+   "title": "Laughing Hamster",
+   "source": "https://media.tenor.com/BAOUlxnkAA4AAAAC/hamster-hamster-laugh.gif"
+  },
+  {
+   "file": "thumbsDown_cat_1.gif",
+   "category": "thumbsDown",
+   "animal": "cat",
+   "title": "Thumbs Down Cat",
+   "source": "https://media.tenor.com/RNXe07BdR2wAAAAC/cat-thumbs-down-thumbs-down.gif"
+  },
+  {
+   "file": "thumbsDown_hamster_1.gif",
+   "category": "thumbsDown",
+   "animal": "hamster",
+   "title": "Thumbs Down Drawn Hamster",
+   "source": "https://media.tenor.com/Kf3g0C5ft4wAAAAC/angry-thumbs-down.gif"
+  },
+  {
+   "file": "facepalm_cat_1.gif",
+   "category": "facepalm",
+   "animal": "cat",
+   "title": "Facepalm Orange Cat",
+   "source": "https://media.tenor.com/7SPkxQlwP9gAAAAC/azrael-facepalm.gif"
+  },
+  {
+   "file": "facepalm_cat_2.gif",
+   "category": "facepalm",
+   "animal": "cat",
+   "title": "Facepalm Blue Cat",
+   "source": "https://media.tenor.com/ciKqB-2eOHwAAAAC/facepalm-oh-god.gif"
   }
  ]
 }

@@ -72,9 +72,10 @@ final class MemePipeline: @unchecked Sendable {
 
     init() {
         camera.onFrame = { [weak self] in self?.handle($0) }
+        let queue = camera.queue
         camera.onProblem = { [weak self] problem in
             // Notifications arrive on arbitrary threads; state lives on the capture queue.
-            self?.camera.queue.async { self?.sessionProblem = problem }
+            queue.async { [weak self] in self?.sessionProblem = problem }
         }
         // Prefetch the "nobody here" meme so the first frame already has something.
         library.prefetch(library.memes(for: .noFace))
@@ -137,6 +138,9 @@ final class MemePipeline: @unchecked Sendable {
         }
         detector.detectHands = settings.detectHands
     }
+
+    /// Re-pick the current meme (it may have been removed or a new one added).
+    func libraryChanged() { state.withLock { $0.meme = nil } }
 
     /// Next face frame becomes the user's neutral baseline.
     func calibrate() { state.withLock { $0.calibrateNext = true } }
