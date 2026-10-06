@@ -4,6 +4,7 @@ import SwiftUI
 /// Content of the menu bar extra (window style).
 struct MenuBarContent: View {
     @Environment(AppModel.self) private var model
+    @Environment(UIState.self) private var ui
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -13,6 +14,13 @@ struct MenuBarContent: View {
                   systemImage: model.cameraState == .running ? model.status.reaction.symbol : "video.slash")
                 .font(.headline)
                 .contentTransition(.symbolEffect(.replace))
+
+            if model.cameraState == .running, let issue = model.status.cameraIssue {
+                Label(issue, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Button { model.toggle() } label: {
                 Label(model.cameraState == .running ? "Stop Camera" : "Start Camera",
@@ -30,16 +38,25 @@ struct MenuBarContent: View {
 
             Divider()
 
+            Button("Customize Memes…", systemImage: "photo.on.rectangle.angled") {
+                ui.editMemes()
+                openMainWindow()
+            }
+            .buttonStyle(.borderless)
+
             HStack {
-                Button("Open MemeCam") {
-                    openWindow(id: "main")
-                    NSApp.activate(ignoringOtherApps: true)
-                }
+                Button("Open MemeCam") { openMainWindow() }
                 Spacer()
                 Button("Quit") { NSApp.terminate(nil) }
             }
         }
         .padding(14)
         .frame(width: 280)
+        .tint(Design.brand)
+    }
+
+    private func openMainWindow() {
+        openWindow(id: "main")
+        NSApp.activate(ignoringOtherApps: true)
     }
 }

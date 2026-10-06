@@ -134,6 +134,9 @@ final class AppModel {
     /// Show a specific reaction for 3 seconds (e.g. clicked in the gallery).
     func trigger(_ reaction: Reaction) { pipeline.force(reaction) }
 
+    /// Show this exact meme for 3 seconds.
+    func trigger(meme: Meme) { pipeline.force(meme: meme) }
+
     func refreshCameras() {
         cameras = CameraCapture.availableDevices()
         if let id = selectedCameraID, !cameras.contains(where: { $0.id == id }) { selectedCameraID = nil }

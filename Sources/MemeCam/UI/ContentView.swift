@@ -1,27 +1,40 @@
 import SwiftUI
 
 struct ContentView: View {
-    @AppStorage("showInspector") private var showInspector = true
+    @Environment(AppModel.self) private var model
+    @Environment(UIState.self) private var ui
 
     var body: some View {
-        PreviewStage()
-            .padding(20)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(.background)
-            .inspector(isPresented: $showInspector) {
-                InspectorView()
-                    .inspectorColumnWidth(min: 280, ideal: 320, max: 420)
-            }
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button { showInspector.toggle() } label: {
-                        Label("Inspector", systemImage: "sidebar.trailing")
-                    }
-                    .help("Show or hide the inspector (\u{2318}I)")
-                }
-            }
-            .toolbar(removing: .title)
-            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-            .frame(minWidth: 900, minHeight: 560)
+        @Bindable var ui = ui
+        VStack(spacing: Design.sectionSpacing) {
+            PreviewStage()
+            ControlBar()
+            ReactionStrip()
+        }
+        .padding(.horizontal, Design.stagePadding)
+        .padding(.top, 8)
+        .padding(.bottom, 18)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { WindowBackdrop() }
+        .inspector(isPresented: $ui.showInspector) {
+            InspectorView()
+                .inspectorColumnWidth(min: 300, ideal: 340, max: 460)
+        }
+        .toolbar { MainToolbar() }
+        .toolbar(removing: .title)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .containerBackground(.thinMaterial, for: .window)
+        .tint(Design.brand)
+        .alert("Couldn't Update Memes", isPresented: libraryErrorShown, presenting: model.libraryError) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { message in
+            Text(message)
+        }
+        .onAppear { model.refreshCameras() }
+        .frame(minWidth: 760, minHeight: 600)
+    }
+
+    private var libraryErrorShown: Binding<Bool> {
+        Binding(get: { model.libraryError != nil }, set: { if !$0 { model.libraryError = nil } })
     }
 }

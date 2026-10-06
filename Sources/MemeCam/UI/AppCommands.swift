@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AppCommands: Commands {
     let model: AppModel
-    @AppStorage("showInspector") private var showInspector = true
+    let ui: UIState
 
     var body: some Commands {
         CommandMenu("Camera") {
@@ -11,9 +11,12 @@ struct AppCommands: Commands {
             Button("Calibrate Neutral Face") { model.calibrate() }
                 .keyboardShortcut("k")
                 .disabled(model.cameraState != .running)
+            Divider()
+            Button("Customize Memes…") { ui.editMemes() }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
         }
         CommandGroup(after: .toolbar) {
-            Button(showInspector ? "Hide Inspector" : "Show Inspector") { showInspector.toggle() }
+            Button(ui.showInspector ? "Hide Inspector" : "Show Inspector") { ui.showInspector.toggle() }
                 .keyboardShortcut("i")
             Divider()
             ForEach(Array(OutputLayout.allCases.enumerated()), id: \.element) { index, layout in

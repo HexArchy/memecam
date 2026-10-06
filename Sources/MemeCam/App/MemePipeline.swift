@@ -146,6 +146,15 @@ final class MemePipeline: @unchecked Sendable {
     func calibrate() { state.withLock { $0.calibrateNext = true } }
 
     /// Show a specific reaction for a few seconds (clicking a reaction in the UI).
+    /// Show exactly this meme for a few seconds (Preview in the meme editor).
+    func force(meme: Meme, seconds: TimeInterval = 3) {
+        let now = CACurrentMediaTime()
+        state.withLock { s in
+            s.forcedUntil = now + seconds
+            setReaction(meme.reaction, confidence: 1, now: now, in: &s, meme: meme)
+        }
+    }
+
     func force(_ reaction: Reaction, seconds: TimeInterval = 3) {
         let now = CACurrentMediaTime()
         state.withLock { s in
@@ -221,12 +230,13 @@ final class MemePipeline: @unchecked Sendable {
         }
     }
 
-    private func setReaction(_ r: Reaction, confidence: Double, now: TimeInterval, in s: inout State) {
+    private func setReaction(_ r: Reaction, confidence: Double, now: TimeInterval, in s: inout State,
+                             meme: Meme? = nil) {
         let t = now - s.memeStart
         s.previousFrame = s.memeImage?.frame(at: t)
         s.reaction = r
         s.confidence = confidence
-        s.meme = library.pick(for: r, filter: s.settings.animals)
+        s.meme = meme ?? library.pick(for: r, filter: s.settings.animals)
         s.memeStart = now
         guard let meme = s.meme else { s.memeImage = nil; return }
         if let img = library.cachedImage(for: meme) {

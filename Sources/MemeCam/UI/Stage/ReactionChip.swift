@@ -1,28 +1,37 @@
 import MemeCamCore
 import SwiftUI
 
-/// Current reaction + a tiny confidence meter, floating over the preview.
+/// Current reaction with a confidence meter, floating over the preview.
 struct ReactionChip: View {
     let reaction: Reaction
     let confidence: Double
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: reaction.symbol)
-                .font(.title3)
-                .frame(width: 26)
+        HStack(spacing: 12) {
+            Image(systemName: reaction.displaySymbol)
+                .font(.title2)
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.tint)
                 .contentTransition(.symbolEffect(.replace))
-            VStack(alignment: .leading, spacing: 4) {
+                .frame(width: 42, height: 42)
+                .background(.tint.opacity(0.2), in: .circle)
+            VStack(alignment: .leading, spacing: 5) {
                 Text(reaction.title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.title3.bold())
                     .contentTransition(.interpolate)
-                ConfidenceMeter(value: confidence)
-                    .frame(width: 56, height: 4)
+                HStack(spacing: 8) {
+                    ConfidenceMeter(value: confidence)
+                        .frame(width: 84, height: 5)
+                    Text(confidence, format: .percent.precision(.fractionLength(0)))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.leading, 7)
+        .padding(.trailing, 18)
+        .padding(.vertical, 7)
         .glassSurface(in: .capsule)
         .animation(reduceMotion ? nil : .snappy, value: reaction)
         .accessibilityElement(children: .ignore)
