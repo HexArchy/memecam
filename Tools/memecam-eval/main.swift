@@ -79,6 +79,18 @@ for label in Reaction.allCases {
         print(line)
         let joints = frames.flatMap(\.0.hands).map { Double($0.joints.count) }
         print("   " + row("joints", joints) + "   raw hands \(frames.flatMap(\.0.hands).count) → shaped \(shapes.count)")
+        // Hand position relative to the face: dx in face widths from the face centre,
+        // dy/top in face heights from the chin (face.minY).
+        var dx: [Double] = [], dy: [Double] = [], top: [Double] = []
+        for f in frames {
+            guard let fb = f.0.face?.boundingBox else { continue }
+            for h in f.0.hands {
+                dx.append(abs(Double((h.center.x - fb.midX) / fb.width)))
+                dy.append(Double((h.center.y - fb.minY) / fb.height))
+                top.append(Double((h.boundingBox.maxY - fb.minY) / fb.height))
+            }
+        }
+        print("   " + row("|dx|", dx) + "   " + row("dy", dy) + "   " + row("top", top))
         if let face = frames.first(where: { $0.0.face != nil })?.0.face?.boundingBox {
             let cy = shapes.map { Double($0.0.center.y) }
             print("   " + row("handY", cy) + String(format: "   face y %.2f…%.2f h %.2f", face.minY, face.maxY, face.height))

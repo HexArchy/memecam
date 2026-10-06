@@ -187,11 +187,14 @@ public struct ReactionClassifier: Sendable {
                    hand.center.y > face.minY + face.height * 0.4 {
                     return (.facepalm, min(1, 0.5 + Double(coverage) * 2))
                 }
-                // Hand resting at the chin => thinking. People do it with a fist, a finger or a
-                // flat hand (recorded: 3 fingers extended), so only a full raised palm is excluded.
-                let chin = CGRect(x: face.minX - face.width * 0.2, y: face.minY - face.height * 0.35,
-                                  width: face.width * 1.4, height: face.height * 0.6)
-                if shape.extendedCount <= 3, chin.contains(hand.center) {
+                // Hand resting under the chin => thinking (fist, finger or flat hand). Measured on
+                // a recording: thinking hands sit centred under the face (|dx| ≤ 0.25 face widths,
+                // centre ≈ chin height, top ≈ 0.3 h), while a fist shown beside the face sits off
+                // to the side (|dx| ≈ 0.4) and higher (top ≈ 0.8 h).
+                let dx = abs(hand.center.x - face.midX) / face.width
+                let dy = (hand.center.y - face.minY) / face.height
+                let top = (hand.boundingBox.maxY - face.minY) / face.height
+                if shape.extendedCount <= 3, dx < 0.3, dy > -0.6, dy < 0.2, top < 0.55 {
                     return (.thinking, 0.8)
                 }
                 // One open palm raised to the top of the head => hands up (Vision frequently

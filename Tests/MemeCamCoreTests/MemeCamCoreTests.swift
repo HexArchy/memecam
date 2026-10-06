@@ -284,3 +284,12 @@ private func turned(_ lm: FaceLandmarks, yaw: Double) -> FaceLandmarks {
         #expect(report.falseSwitchesPerMinute <= 1, "\(file.lastPathComponent)")
     }
 }
+
+@Test func fistBesideFaceIsNotThinking() {
+    var c = ReactionClassifier()
+    let fist = [false, false, false, false]
+    // face box: x 0.3…0.7, y 0.25…0.75. Fist to the side at cheek height.
+    #expect(classify(face(), hands: [hand(at: CGPoint(x: 0.82, y: 0.3), extended: fist)], &c) == .fist)
+    // Fist centred right under the chin.
+    #expect(classify(face(), hands: [hand(at: CGPoint(x: 0.5, y: 0.02), extended: fist)], &c) == .thinking)
+}
