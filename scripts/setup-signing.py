@@ -12,7 +12,7 @@ login keychain), and two macOS development provisioning profiles.
 Output: ~/.memecam-signing/{signing.env, MemeCam.provisionprofile, CameraExtension.provisionprofile}
 Secrets are never printed.
 
-Usage: scripts/setup-signing.py [path/to/appstoreconnect.env]
+Usage: scripts/setup-signing.py [path/to/appstoreconnect.env] [--revoke <serial>]
 """
 
 import base64
@@ -59,8 +59,11 @@ class ASC:
             self.key, algorithm="ES256", headers={"kid": self.key_id, "typ": "JWT"})
         return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
+    def raw(self, method: str, path: str, **kw) -> requests.Response:
+        return requests.request(method, API + path, headers=self._headers(), timeout=60, **kw)
+
     def call(self, method: str, path: str, **kw):
-        r = requests.request(method, API + path, headers=self._headers(), timeout=60, **kw)
+        r = self.raw(method, path, **kw)
         if r.status_code >= 400:
             errs = r.json().get("errors", [{}]) if r.content else [{}]
             detail = "; ".join(f"{e.get('title')}: {e.get('detail')}" for e in errs)
@@ -181,8 +184,19 @@ def ensure_certificate(asc: ASC) -> tuple[str, str]:
                                     x509.NameAttribute(NameOID.EMAIL_ADDRESS, "dev@hexarch.local")]))
            .sign(key, hashes.SHA256()))
     csr_pem = csr.public_bytes(serialization.Encoding.PEM).decode()
-    data = asc.call("POST", "/certificates", json={"data": {"type": "certificates", "attributes": {
-        "certificateType": "DEVELOPMENT", "csrContent": csr_pem}}})["data"]
+    r = asc.raw("POST", "/certificates", json={"data": {"type": "certificates", "attributes": {
+        "certificateType": "DEVELOPMENT", "csrContent": csr_pem}}})
+    if r.status_code == 409:
+        print("\nApple allows only one current Development certificate on this account:", file=sys.stderr)
+        for c in certs:
+            a = c["attributes"]
+            print(f"  serial {a['serialNumber']}  “{a.get('displayName') or a.get('name')}”  "
+                  f"expires {a['expirationDate'][:10]}  (private key NOT on this Mac)", file=sys.stderr)
+        sys.exit("\nIf it is the orphan from an interrupted run (or you no longer use it), revoke it and retry:\n"
+                 "  uv run --script scripts/setup-signing.py --revoke <serial>")
+    if r.status_code >= 400:
+        sys.exit(f"ASC POST /certificates -> {r.status_code}: {r.text[:300]}")
+    data = r.json()["data"]
     cert = x509.load_der_x509_certificate(base64.b64decode(data["attributes"]["certificateContent"]))
     import_identity(key, cert)
     pending.unlink()
@@ -205,8 +219,23 @@ def ensure_profile(asc: ASC, name: str, bundle_id: str, cert_id: str, device_id:
     return base64.b64decode(data["attributes"]["profileContent"])
 
 
+def revoke(asc: ASC, serial: str):
+    certs = asc.call("GET", "/certificates?filter[certificateType]=DEVELOPMENT&limit=200")["data"]
+    match = [c for c in certs if c["attributes"]["serialNumber"].upper() == serial.upper()]
+    if not match:
+        sys.exit(f"No Development certificate with serial {serial}")
+    asc.call("DELETE", f"/certificates/{match[0]['id']}")
+    step(f"revoked certificate {serial}")
+
+
 def main():
-    env_path = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else
+    args = sys.argv[1:]
+    revoke_serial = None
+    if "--revoke" in args:
+        i = args.index("--revoke")
+        revoke_serial = args[i + 1]
+        del args[i:i + 2]
+    env_path = pathlib.Path(args[0] if args else
                             "~/Workspace/vps/porovnu/secrets/appstoreconnect.env").expanduser()
     env = load_env(env_path)
     key_id, issuer, team = env.get("ASC_KEY_ID"), env.get("ASC_ISSUER_ID"), env.get("APPLE_TEAM_ID")
@@ -219,6 +248,8 @@ def main():
         sys.exit(f"AuthKey_{key_id}.p8 not found next to {env_path}")
     asc = ASC(key_id, issuer, key_file.read_text())
 
+    if revoke_serial:
+        revoke(asc, revoke_serial)
     device = ensure_device(asc)
     app = ensure_bundle(asc, APP_ID, "MemeCam", ["SYSTEM_EXTENSION_INSTALL"])
     ext = ensure_bundle(asc, EXT_ID, "MemeCam Camera Extension", [])
