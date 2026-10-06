@@ -97,4 +97,17 @@ for label in Reaction.allCases {
         }
     }
 }
-print("\n" + Evaluator().evaluate(rec).summary)
+let modelURL = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+    .deletingLastPathComponent().appending(path: "Resources/Models/hand-gesture-mlp.json")
+let model = try? HandGestureModel(json: Data(contentsOf: modelURL))
+print("\n--- rules only ---\n" + Evaluator().evaluate(rec).summary)
+if let model {
+    print("\n--- with HaGRID model ---\n" + Evaluator(handModel: model).evaluate(rec).summary)
+    // Raw model label distribution per gesture prompt.
+    for label in Reaction.allCases where label.isGesture {
+        let preds = rec.frames.filter { $0.label == label }.flatMap(\.observation.hands).compactMap { model.predict($0) }
+        let hist = Dictionary(grouping: preds, by: { $0.probability >= 0.8 ? $0.label.rawValue : "unsure" })
+            .mapValues(\.count).sorted { $0.value > $1.value }.prefix(4)
+        print("  \(label.title.padding(toLength: 12, withPad: " ", startingAt: 0)) model:", hist.map { "\($0.key) \($0.value)" }.joined(separator: ", "))
+    }
+}

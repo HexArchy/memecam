@@ -70,6 +70,27 @@ public struct HandPose: Sendable, Equatable, Codable {
         let b = boundingBox
         return CGPoint(x: b.midX, y: b.midY)
     }
+    /// When the wrist is out of frame (a fist right in front of the lens) Vision drops it, and
+    /// nothing downstream can normalise the hand. Estimate it behind the knuckle line: the
+    /// palm is roughly as long as the knuckles are wide, on the side away from the fingers.
+    public func withEstimatedWrist() -> HandPose {
+        guard joints[.wrist] == nil, let index = joints[.indexMCP], let little = joints[.littleMCP],
+              let middle = joints[.middleMCP] ?? joints[.ringMCP] else { return self }
+        let knuckles = CGPoint(x: little.x - index.x, y: little.y - index.y)
+        let width = hypot(knuckles.x, knuckles.y)
+        guard width > 1e-4 else { return self }
+        var n = CGPoint(x: -knuckles.y / width, y: knuckles.x / width)   // unit normal
+        let fingers = [HandJoint.indexPIP, .middlePIP, .ringPIP, .littlePIP, .indexTip, .middleTip]
+            .compactMap { joints[$0] }
+        if !fingers.isEmpty {
+            let c = fingers.centroid
+            // Point the normal away from the fingers.
+            if (c.x - middle.x) * n.x + (c.y - middle.y) * n.y > 0 { n = CGPoint(x: -n.x, y: -n.y) }
+        }
+        var copy = self
+        copy.joints[.wrist] = CGPoint(x: middle.x + n.x * width * 1.1, y: middle.y + n.y * width * 1.1)
+        return copy
+    }
 }
 
 /// Everything the detector saw in one frame.

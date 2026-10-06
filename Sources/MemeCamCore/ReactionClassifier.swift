@@ -46,6 +46,8 @@ public struct ReactionClassifier: Sendable {
     }
 
     public var config: Config
+    /// Learned hand-shape classifier; rules are used when nil.
+    public var handModel: HandGestureModel?
     public private(set) var baseline: FaceMetrics = .typicalNeutral
     public private(set) var calibration: Calibration = .none
     public var isCalibrated: Bool { calibration != .none }
@@ -65,8 +67,9 @@ public struct ReactionClassifier: Sendable {
     private var lastFaceBox: CGRect?
     private var lastFaceTime: TimeInterval = -.infinity
 
-    public init(config: Config = Config()) {
+    public init(config: Config = Config(), handModel: HandGestureModel? = nil) {
         self.config = config
+        self.handModel = handModel
     }
 
     /// Re-measure the neutral face over the next frames (user pressed "Calibrate").
@@ -144,71 +147,88 @@ public struct ReactionClassifier: Sendable {
 
     // MARK: - Gestures
 
-    private func classifyGestures(_ hands: [HandPose], faceBox: CGRect?) -> (Reaction, Double)? {
-        // Ignore tiny "hands" (background clutter, far-away people).
-        let minPalm = faceBox.map { Double($0.height) * 0.25 } ?? 0.06
-        // Low Vision confidence = partial/blurred/false hands; they cause most spurious gestures.
-        let shaped = hands.filter { $0.confidence >= 0.5 }
-            .compactMap { h in HandShape(h).map { (h, $0) } }.filter { $0.1.palmSize >= minPalm }
-        guard !shaped.isEmpty else { return nil }
+    /// A hand plus everything we know about its shape.
+    private struct SeenHand {
+        let pose: HandPose
+        let shape: HandShape
+        let model: HandGestureModel.Prediction?
 
-        if shaped.count >= 2 {
-            let (h1, s1) = shaped[0], (h2, s2) = shaped[1]
-            let unit = (s1.palmSize + s2.palmSize) / 2
-            if let i1 = h1[.indexTip], let i2 = h2[.indexTip],
-               let t1 = h1[.thumbTip], let t2 = h2[.thumbTip],
-               i1.distance(to: i2) < unit * 0.6, t1.distance(to: t2) < unit * 0.6,
-               (i1.y + i2.y) > (t1.y + t2.y) {
+        /// Confident model label (p ≥ 0.8), if any.
+        var label: HandGestureModel.Label? { model.flatMap { $0.probability >= 0.8 ? $0.label : nil } }
+        var isOpen: Bool { label.map { $0 == .openPalm } ?? (shape.extendedCount >= 4) }
+        var isHeartHalf: Bool { label.map { $0 == .heartHalf } ?? shape.looksLikeHalfHeart }
+
+        /// Single-hand gesture: the learned model decides when it is confident (p ≥ 0.8);
+        /// otherwise the geometric rules decide, exactly as without a model.
+        var gesture: HandGesture? {
+            if let model, model.probability >= 0.8 { return model.label.gesture }
+            return shape.gesture(for: pose)
+        }
+    }
+
+    private func classifyGestures(_ hands: [HandPose], faceBox: CGRect?) -> (Reaction, Double)? {
+        // Ignore tiny "hands" (background clutter, far-away people) and low-confidence ones.
+        let minPalm = faceBox.map { Double($0.height) * 0.25 } ?? 0.06
+        let seen = hands.filter { $0.confidence >= 0.5 }.map { $0.withEstimatedWrist() }.compactMap { h -> SeenHand? in
+            guard let shape = HandShape(h), shape.palmSize >= minPalm else { return nil }
+            return SeenHand(pose: h, shape: shape, model: handModel?.predict(h))
+        }
+        guard !seen.isEmpty else { return nil }
+
+        if seen.count >= 2 {
+            let a = seen[0], b = seen[1]
+            let unit = (a.shape.palmSize + b.shape.palmSize) / 2
+            let close = a.pose.center.distance(to: b.pose.center) < unit * 2.2
+            if a.isHeartHalf && b.isHeartHalf && close { return (.heart, 0.95) }
+            if handModel == nil, let i1 = a.pose[.indexTip], let i2 = b.pose[.indexTip],
+               let t1 = a.pose[.thumbTip], let t2 = b.pose[.thumbTip],
+               i1.distance(to: i2) < unit * 0.6, t1.distance(to: t2) < unit * 0.6, (i1.y + i2.y) > (t1.y + t2.y) {
                 return (.heart, 0.9)
             }
             let topY = faceBox.map { $0.maxY - $0.height * 0.2 } ?? 0.65
-            if s1.extendedCount >= 3, s2.extendedCount >= 3,
-               h1.center.y > topY, h2.center.y > topY {
+            if a.isOpen, b.isOpen, a.pose.center.y > topY, b.pose.center.y > topY {
                 return (.handsUp, 0.9)
             }
         }
 
-        // Vision often merges a two-hand heart into one "hand" with the thumb pointing down
-        // and index/middle bent in an arc (measured: reach ≈1.1 vs ≈0.7 for a thumbs-down fist).
-        if let (hand, _) = shaped.first(where: { $0.1.looksLikeHalfHeart }),
-           faceBox.map({ hand.center.y < $0.midY }) ?? true {
-            return (.heart, 0.8)
+        // Vision often merges a two-hand heart into a single "hand".
+        if let h = seen.first(where: \.isHeartHalf), faceBox.map({ h.pose.center.y < $0.midY }) ?? true {
+            return (.heart, 0.85)
         }
 
         if let face = faceBox {
-            for (hand, shape) in shaped {
-                let hb = hand.boundingBox
+            for h in seen {
+                let hb = h.pose.boundingBox
                 let overlap = hb.intersection(face)
                 let coverage = overlap.isNull ? 0 : (overlap.width * overlap.height) / max(face.width * face.height, 1e-6)
                 // Open-ish hand over the upper face (eyes/forehead) => facepalm. A fist held in
-                // front of the face is not a facepalm (it was the #2 fist confusion).
-                if shape.extendedCount >= 2, coverage > 0.06,
-                   face.insetBy(dx: face.width * 0.1, dy: 0).contains(hand.center),
-                   hand.center.y > face.minY + face.height * 0.4 {
+                // front of the face is not a facepalm.
+                let openish = h.label.map { $0 == .openPalm || $0 == .none } ?? (h.shape.extendedCount >= 2)
+                if openish, coverage > 0.06,
+                   face.insetBy(dx: face.width * 0.1, dy: 0).contains(h.pose.center),
+                   h.pose.center.y > face.minY + face.height * 0.4 {
                     return (.facepalm, min(1, 0.5 + Double(coverage) * 2))
                 }
-                // Hand resting under the chin => thinking (fist, finger or flat hand). Measured on
-                // a recording: thinking hands sit centred under the face (|dx| ≤ 0.25 face widths,
-                // centre ≈ chin height, top ≈ 0.3 h), while a fist shown beside the face sits off
-                // to the side (|dx| ≈ 0.4) and higher (top ≈ 0.8 h).
-                let dx = abs(hand.center.x - face.midX) / face.width
-                let dy = (hand.center.y - face.minY) / face.height
-                let top = (hand.boundingBox.maxY - face.minY) / face.height
-                if shape.extendedCount <= 3, dx < 0.3, dy > -0.6, dy < 0.2, top < 0.55 {
+                // Hand resting under the chin => thinking (fist, finger or flat hand). Measured:
+                // thinking hands sit centred under the face (|dx| ≤ 0.25 face widths, centre ≈ chin,
+                // top ≈ 0.3 h); a fist shown beside the face sits to the side (|dx| ≈ 0.4), higher.
+                let dx = abs(h.pose.center.x - face.midX) / face.width
+                let dy = (h.pose.center.y - face.minY) / face.height
+                let top = (hb.maxY - face.minY) / face.height
+                if !h.isOpen, dx < 0.3, dy > -0.6, dy < 0.2, top < 0.55 {
                     return (.thinking, 0.8)
                 }
                 // One open palm raised to the top of the head => hands up (Vision frequently
                 // reports only one of two raised hands).
-                if shape.extendedCount >= 4, hand.center.y > face.minY + face.height * 0.9,
-                   coverage < 0.15 {
+                if h.isOpen, h.pose.center.y > face.minY + face.height * 0.9, coverage < 0.15 {
                     return (.handsUp, 0.75)
                 }
             }
         }
 
-        // Single-hand gesture from the most confident recognised hand.
-        let best = shaped
-            .compactMap { h, s in s.gesture(for: h).map { ($0, h.confidence) } }
+        // Single-hand gesture from the most confident hand.
+        let best = seen
+            .compactMap { h in h.gesture.map { ($0, h.model?.probability ?? h.pose.confidence) } }
             .max { $0.1 < $1.1 }
         return best.map { ($0.0.reaction, max($0.1, 0.5)) }
     }

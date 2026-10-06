@@ -66,6 +66,12 @@ final class AppModel {
         NSWorkspace.shared.open(dir)
     }
 
+    /// Same model the pipeline uses, for scoring accuracy tests.
+    nonisolated static let handModel: HandGestureModel? = {
+        let url = Bundle.main.resourceURL?.appending(path: "Models/hand-gesture-mlp.json")
+        return url.flatMap { try? Data(contentsOf: $0) }.flatMap { try? HandGestureModel(json: $0) }
+    }()
+
     nonisolated static let recordingsDirectory = URL.applicationSupportDirectory.appending(path: "MemeCam/Recordings")
 
     nonisolated private static func save(_ rec: Recording) -> URL? {
@@ -137,7 +143,7 @@ final class AppModel {
         }
         pipeline.onRecordingFinished = { [weak self] rec in
             let url = AppModel.save(rec)
-            let report = Evaluator().evaluate(rec).summary
+            let report = Evaluator(handModel: AppModel.handModel).evaluate(rec).summary
             Task { @MainActor in
                 self?.lastRecordingURL = url
                 self?.lastEvaluation = report

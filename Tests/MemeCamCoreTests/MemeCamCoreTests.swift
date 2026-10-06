@@ -293,3 +293,66 @@ private func turned(_ lm: FaceLandmarks, yaw: Double) -> FaceLandmarks {
     // Fist centred right under the chin.
     #expect(classify(face(), hands: [hand(at: CGPoint(x: 0.5, y: 0.02), extended: fist)], &c) == .thinking)
 }
+
+private func loadModel() throws -> HandGestureModel {
+    let url = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appending(path: "Resources/Models/hand-gesture-mlp.json")
+    return try HandGestureModel(json: Data(contentsOf: url))
+}
+
+/// The Swift port must reproduce the Python reference within 1e-4 (golden vectors).
+@Test func handModelMatchesGoldenVectors() throws {
+    let model = try loadModel()
+    let url = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .deletingLastPathComponent().appending(path: "Resources/Models/hand-gesture-mlp.golden.json")
+    struct Golden: Decodable {
+        struct Case: Decodable {
+            let expectedLabel: String
+            let joints: [String: [Double]?]
+            let features: [Double]
+            let probabilities: [Double]
+        }
+        let cases: [Case]
+    }
+    let golden = try JSONDecoder().decode(Golden.self, from: Data(contentsOf: url))
+    for c in golden.cases {
+        var joints: [HandJoint: CGPoint] = [:]
+        for (name, xy) in c.joints {
+            if let xy, let j = HandJoint(rawValue: name) { joints[j] = CGPoint(x: xy[0], y: xy[1]) }
+        }
+        let hand = HandPose(joints: joints)
+        let f = try #require(HandGestureModel.features(hand))
+        for (a, b) in zip(f, c.features) { #expect(abs(Double(a) - b) < 1e-4) }
+        let p = try #require(model.predict(hand))
+        #expect(p.label.rawValue == c.expectedLabel)
+        for (a, b) in zip(p.probabilities, c.probabilities) { #expect(abs(a - b) < 1e-4, "\(c.expectedLabel)") }
+    }
+}
+
+@Test func onlyAFistInFrame() throws {
+    let fist = [false, false, false, false]
+    for model in [nil, try loadModel()] as [HandGestureModel?] {
+        var c = ReactionClassifier(handModel: model)
+        // No face at all, a normal-size fist.
+        #expect(classify(nil, hands: [hand(at: CGPoint(x: 0.9, y: 0.3), extended: fist)], &c) == .fist)
+        // A huge fist filling the frame (held right in front of the lens).
+        var c2 = ReactionClassifier(handModel: model)
+        #expect(classify(nil, hands: [hand(at: CGPoint(x: 0.7, y: -0.1), extended: fist, scale: 5)], &c2) == .fist)
+        // The fist just covered the face: the face was seen a moment ago, now only the fist.
+        var c3 = ReactionClassifier(handModel: model)
+        _ = c3.classify(FrameObservation(timestamp: 0, face: face(), hands: []))
+        let r = c3.classify(FrameObservation(timestamp: 0.3, face: nil,
+                                             hands: [hand(at: CGPoint(x: 0.5, y: 0.2), extended: fist, scale: 3)])).reaction
+        #expect(r == .fist, "model: \(model != nil)")
+    }
+}
+
+@Test func fistWithWristOutOfFrame() throws {
+    for model in [nil, try loadModel()] as [HandGestureModel?] {
+        var c = ReactionClassifier(handModel: model)
+        var h = hand(at: CGPoint(x: 0.7, y: -0.3), extended: [false, false, false, false], scale: 5)
+        h.joints[.wrist] = nil
+        h.joints[.thumbCMC] = nil
+        #expect(classify(nil, hands: [h], &c) == .fist, "model: \(model != nil)")
+    }
+}

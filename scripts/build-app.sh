@@ -70,6 +70,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/MemeCam" "$APP/Contents/MacOS/MemeCam"
 cp -R "$ROOT/Resources/Memes" "$APP/Contents/Resources/Memes"
+cp -R "$ROOT/Resources/Models" "$APP/Contents/Resources/Models"
 
 ICON_KEY=""
 if [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then

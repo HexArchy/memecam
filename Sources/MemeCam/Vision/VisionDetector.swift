@@ -120,7 +120,8 @@ final class VisionDetector: @unchecked Sendable {
                 joints[j] = CGPoint(x: p.location.x * aspect, y: p.location.y)
             }
         }
-        guard joints.count >= 8 else { return nil }
+        // Wrist may be out of frame (fist close to the lens); the classifier estimates it.
+        guard joints.count >= 8, joints[.middleMCP] != nil || joints[.indexMCP] != nil else { return nil }
         return HandPose(joints: joints, confidence: Double(obs.confidence))
     }
 }

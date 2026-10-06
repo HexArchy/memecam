@@ -93,6 +93,16 @@ final class MemePipeline: @unchecked Sendable {
     private var running = false
 
     init() {
+        // Learned hand-gesture model (HaGRID v2). Bundled app: Contents/Resources/Models;
+        // `swift run`: ./Resources/Models. Rules alone are used if it can't be loaded.
+        let modelURL = [Bundle.main.resourceURL?.appending(path: "Models/hand-gesture-mlp.json"),
+                        URL(filePath: FileManager.default.currentDirectoryPath)
+                            .appending(path: "Resources/Models/hand-gesture-mlp.json")]
+            .compactMap { $0 }.first { FileManager.default.fileExists(atPath: $0.path) }
+        if let modelURL, let data = try? Data(contentsOf: modelURL),
+           let model = try? HandGestureModel(json: data) {
+            state.withLock { $0.classifier.handModel = model }
+        }
         camera.onFrame = { [weak self] in self?.handle($0) }
         let queue = camera.queue
         camera.onProblem = { [weak self] problem in
