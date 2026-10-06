@@ -16,6 +16,7 @@ final class VisionDetector: @unchecked Sendable {
     private let faceRequest: VNDetectFaceLandmarksRequest = {
         let r = VNDetectFaceLandmarksRequest()
         r.revision = VNDetectFaceLandmarksRequestRevision3
+        r.constellation = .constellation76Points // explicit: brows/lips need the dense layout
         return r
     }()
     private let handRequest: VNDetectHumanHandPoseRequest = {

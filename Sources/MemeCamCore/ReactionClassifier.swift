@@ -34,6 +34,8 @@ public struct ReactionClassifier: Sendable {
         public var tiltDegrees: Double = 18
         /// Beyond this head yaw/pitch (radians) expressions are not judged.
         public var maxHeadTurn: Double = 0.45
+        /// Brow-based reactions (eyebrows raised, sad) are fragile under pose; stricter limit.
+        public var maxHeadTurnForBrows: Double = 0.30
         public var enableGestures = true
         public var enableExpressions = true
         public init() {}
@@ -110,7 +112,8 @@ public struct ReactionClassifier: Sendable {
             return ReactionEstimate(reaction: lastExpression, confidence: 0, metrics: metrics)
         }
 
-        let estimate = classifyExpression(metrics)
+        let browsReliable = abs(face.yaw) <= config.maxHeadTurnForBrows && abs(face.pitch) <= config.maxHeadTurnForBrows
+        let estimate = classifyExpression(metrics, browsReliable: browsReliable)
         lastExpression = estimate.reaction
         if estimate.reaction == .neutral, frame.hands.isEmpty, !collecting {
             // Track slow drift (lighting, posture) without chasing expressions.
@@ -192,6 +195,8 @@ public struct ReactionClassifier: Sendable {
     /// Scores are normalised: 1.0 == "just at threshold".
     struct ExpressionScores {
         var open = 0.0, smile = 0.0, eyesClosed = 0.0, brows = 0.0, sad = 0.0, tilt = 0.0
+        /// FACS AU1 (inner brow raiser) and AU4 (brow lowerer) intensities, 1 = threshold.
+        var au1 = 0.0, au4 = 0.0
     }
 
     func scores(_ m: FaceMetrics) -> ExpressionScores {
@@ -204,13 +209,21 @@ public struct ReactionClassifier: Sendable {
         s.smile = max((widthRatio - 1) / (0.10 * k), (m.cornerLift - b.cornerLift) / (0.045 * k))
         s.eyesClosed = (1 - eyeRatio) / (0.45 * min(k, 1.6))
         s.brows = (m.browRaise - b.browRaise) / (0.07 * k)
-        s.sad = -(m.cornerLift - b.cornerLift) / (0.04 * k)
+        s.au1 = (m.innerBrowRaise - b.innerBrowRaise) / (0.04 * k)
+        s.au4 = (1 - m.browGap / max(b.browGap, 1e-3)) / (0.08 * k)
+        // Sadness = lip-corner depressor (AU15) with AU1 or AU4 — corners alone are too often
+        // just a resting mouth or talking. A very strong AU15 alone still counts.
+        let corners = -(m.cornerLift - b.cornerLift) / (0.04 * k)
+        let browSupport = max(s.au1, s.au4)
+        s.sad = corners >= 1 && browSupport >= 0.6 ? (corners + browSupport) / 2
+            : corners >= 1.8 ? corners * 0.75 : 0
         s.tilt = abs(m.rollDegrees - b.rollDegrees) / (config.tiltDegrees * k)
         return s
     }
 
-    private func classifyExpression(_ m: FaceMetrics) -> ReactionEstimate {
-        let s = scores(m)
+    private func classifyExpression(_ m: FaceMetrics, browsReliable: Bool = true) -> ReactionEstimate {
+        var s = scores(m)
+        if !browsReliable { s.brows = 0; s.sad = 0 }
         var candidates: [(Reaction, Double)] = []
         if s.open >= 1 {
             // Open mouth: laugh if also smiling, else surprise. Raised brows are part of surprise.

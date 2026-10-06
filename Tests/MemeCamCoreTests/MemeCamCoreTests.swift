@@ -192,3 +192,41 @@ private func feed(_ s: inout ReactionStabilizer, _ r: Reaction, _ t0: Double, _ 
     h.joints[.indexPIP] = CGPoint(x: 1.2, y: 0.2 + 0.5)
     #expect(classify(nil, hands: [h], &c) == .fist)
 }
+
+/// Simulates turning the head by `yaw`: horizontal distances shrink by cos(yaw).
+private func turned(_ lm: FaceLandmarks, yaw: Double) -> FaceLandmarks {
+    let k = CGFloat(cos(yaw)), cx: CGFloat = 0.5
+    func squash(_ p: [CGPoint]) -> [CGPoint] { p.map { CGPoint(x: cx + ($0.x - cx) * k, y: $0.y) } }
+    var out = lm
+    out.leftEye = squash(lm.leftEye); out.rightEye = squash(lm.rightEye)
+    out.leftBrow = squash(lm.leftBrow); out.rightBrow = squash(lm.rightBrow)
+    out.outerLips = squash(lm.outerLips); out.innerLips = squash(lm.innerLips)
+    out.yaw = yaw
+    return out
+}
+
+@Test func yawForeshorteningIsCorrected() throws {
+    let straight = try #require(FaceMetrics(face()))
+    let side = try #require(FaceMetrics(turned(face(), yaw: 0.4)))
+    #expect(abs(side.browRaise - straight.browRaise) < 1e-6)
+    #expect(abs(side.mouthOpen - straight.mouthOpen) < 1e-6)
+    // Without correction the ratio would be inflated by 1/cos(0.4) ≈ +8.6%.
+}
+
+@Test func turnedNeutralFaceStaysNeutral() throws {
+    var c = ReactionClassifier()
+    c.calibrate(to: try #require(FaceMetrics(face())))
+    #expect(c.classify(FrameObservation(timestamp: 0, face: turned(face(), yaw: 0.4), hands: [])).reaction == .neutral)
+}
+
+@Test func sadnessNeedsBrowSupportUnlessStrong() throws {
+    var c = ReactionClassifier()
+    c.calibrate(to: try #require(FaceMetrics(face())))
+    // Mild corner drop alone (resting / talking mouth) is not sad.
+    #expect(classify(face(cornerLift: -0.009), &c) == .neutral)
+    // Same drop with inner brows raised (AU1) is sad.
+    var lm = face(cornerLift: -0.009)
+    lm.leftBrow = [CGPoint(x: 0.37, y: 0.64), CGPoint(x: 0.43, y: 0.655)]
+    lm.rightBrow = [CGPoint(x: 0.57, y: 0.655), CGPoint(x: 0.63, y: 0.64)]
+    #expect(classify(lm, &c) == .sad)
+}

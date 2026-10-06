@@ -4,7 +4,9 @@ import Foundation
 /// Scale- and rotation-invariant face measurements. All lengths are divided by the
 /// inter-ocular distance (IOD), and points are de-rotated by the eye-line angle first,
 /// so tilting the head or moving closer to the camera does not change the numbers.
-public struct FaceMetrics: Sendable, Equatable {
+/// Vertical measures are also corrected for head yaw/pitch (foreshortening): turning the head
+/// shrinks the IOD by cos(yaw), which would otherwise inflate every vertical/IOD ratio.
+public struct FaceMetrics: Sendable, Equatable, Codable {
     /// Inner-lip height / outer-lip width (mouth aspect ratio).
     public var mouthOpen: Double
     /// Outer-lip width / IOD.
@@ -18,15 +20,22 @@ public struct FaceMetrics: Sendable, Equatable {
     public var browRaise: Double
     /// Head roll in degrees, from the eye line.
     public var rollDegrees: Double
+    /// (mean inner-brow-end y − mean eye y) / IOD — FACS AU1 "inner brow raiser" (sadness, worry).
+    public var innerBrowRaise: Double
+    /// Distance between the inner brow ends / IOD — shrinks with AU4 "brow lowerer" (frown).
+    public var browGap: Double
 
     public init(mouthOpen: Double, mouthWidth: Double, cornerLift: Double,
-                eyeOpen: Double, browRaise: Double, rollDegrees: Double) {
+                eyeOpen: Double, browRaise: Double, rollDegrees: Double,
+                innerBrowRaise: Double = 0.38, browGap: Double = 0.55) {
         self.mouthOpen = mouthOpen
         self.mouthWidth = mouthWidth
         self.cornerLift = cornerLift
         self.eyeOpen = eyeOpen
         self.browRaise = browRaise
         self.rollDegrees = rollDegrees
+        self.innerBrowRaise = innerBrowRaise
+        self.browGap = browGap
     }
 
     /// Typical values for a relaxed face looking at a webcam; used until calibrated.
@@ -34,6 +43,16 @@ public struct FaceMetrics: Sendable, Equatable {
         mouthOpen: 0.04, mouthWidth: 0.95, cornerLift: -0.08,
         eyeOpen: 0.30, browRaise: 0.40, rollDegrees: 0
     )
+
+    /// All fields as a vector (for filtering / statistics); order matches `init(vector:)`.
+    public var vector: [Double] {
+        [mouthOpen, mouthWidth, cornerLift, eyeOpen, browRaise, rollDegrees, innerBrowRaise, browGap]
+    }
+
+    public init(vector v: [Double]) {
+        self.init(mouthOpen: v[0], mouthWidth: v[1], cornerLift: v[2], eyeOpen: v[3], browRaise: v[4],
+                  rollDegrees: v[5], innerBrowRaise: v[6], browGap: v[7])
+    }
 
     public init?(_ face: FaceLandmarks) {
         guard face.leftEye.count >= 4, face.rightEye.count >= 4,
@@ -56,7 +75,8 @@ public struct FaceMetrics: Sendable, Equatable {
         }
 
         let leftEye = derotate(face.leftEye), rightEye = derotate(face.rightEye)
-        let brows = derotate(face.leftBrow + face.rightBrow)
+        let leftBrow = derotate(face.leftBrow), rightBrow = derotate(face.rightBrow)
+        let brows = leftBrow + rightBrow
         let outer = derotate(face.outerLips), inner = derotate(face.innerLips)
 
         let outerBounds = outer.bounds
@@ -76,24 +96,27 @@ public struct FaceMetrics: Sendable, Equatable {
         let eyesY = (leftEye.centroid.y + rightEye.centroid.y) / 2
         let iodF = CGFloat(iod)
 
-        self.mouthOpen = Double(innerBounds.height / outerBounds.width)
+        // Inner brow end = the brow point closest to the face midline.
+        func innerEnd(_ brow: [CGPoint]) -> CGPoint { brow.min { abs($0.x - pivot.x) < abs($1.x - pivot.x) }! }
+        let innerL = innerEnd(leftBrow), innerR = innerEnd(rightBrow)
+
+        // Foreshortening: yaw shrinks horizontal lengths (IOD, widths) by cos(yaw); pitch shrinks
+        // vertical ones by cos(pitch). Clamp so extreme poses don't explode the correction.
+        let yawCos = cos(min(abs(face.yaw), 0.7)), pitchCos = cos(min(abs(face.pitch), 0.7))
+        let vertical = yawCos / pitchCos   // for vertical / horizontal ratios
+
+        self.mouthOpen = Double(innerBounds.height / outerBounds.width) * vertical
         self.mouthWidth = Double(outerBounds.width / iodF)
-        self.cornerLift = Double((cornersY - outerBounds.maxY) / iodF)
-        self.eyeOpen = (ear(leftEye) + ear(rightEye)) / 2
-        self.browRaise = Double((brows.centroid.y - eyesY) / iodF)
+        self.cornerLift = Double((cornersY - outerBounds.maxY) / iodF) * vertical
+        self.eyeOpen = (ear(leftEye) + ear(rightEye)) / 2 * vertical
+        self.browRaise = Double((brows.centroid.y - eyesY) / iodF) * vertical
         self.rollDegrees = angle * 180 / .pi
+        self.innerBrowRaise = Double(((innerL.y + innerR.y) / 2 - eyesY) / iodF) * vertical
+        self.browGap = Double(abs(innerR.x - innerL.x) / iodF)
     }
 
     /// Linear blend used for exponential moving averages.
     public func blended(toward other: FaceMetrics, alpha: Double) -> FaceMetrics {
-        func mix(_ x: Double, _ y: Double) -> Double { x + (y - x) * alpha }
-        return FaceMetrics(
-            mouthOpen: mix(mouthOpen, other.mouthOpen),
-            mouthWidth: mix(mouthWidth, other.mouthWidth),
-            cornerLift: mix(cornerLift, other.cornerLift),
-            eyeOpen: mix(eyeOpen, other.eyeOpen),
-            browRaise: mix(browRaise, other.browRaise),
-            rollDegrees: mix(rollDegrees, other.rollDegrees)
-        )
+        FaceMetrics(vector: zip(vector, other.vector).map { $0 + ($1 - $0) * alpha })
     }
 }

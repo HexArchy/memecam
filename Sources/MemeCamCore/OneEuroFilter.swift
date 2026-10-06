@@ -48,7 +48,7 @@ public struct OneEuroFilter: Sendable {
 
 /// Smooths every field of `FaceMetrics` independently.
 public struct FaceMetricsFilter: Sendable {
-    private var f = Array(repeating: OneEuroFilter(), count: 6)
+    private var f = Array(repeating: OneEuroFilter(), count: FaceMetrics.typicalNeutral.vector.count)
     private var lastTime: TimeInterval = -.infinity
 
     public init() {}
@@ -57,14 +57,7 @@ public struct FaceMetricsFilter: Sendable {
         // Face lost for a while: start fresh instead of gliding from stale values.
         if t - lastTime > 0.5 { for i in f.indices { f[i].reset() } }
         lastTime = t
-        return FaceMetrics(
-            mouthOpen: f[0].filter(m.mouthOpen, at: t),
-            mouthWidth: f[1].filter(m.mouthWidth, at: t),
-            cornerLift: f[2].filter(m.cornerLift, at: t),
-            eyeOpen: f[3].filter(m.eyeOpen, at: t),
-            browRaise: f[4].filter(m.browRaise, at: t),
-            rollDegrees: f[5].filter(m.rollDegrees, at: t)
-        )
+        return FaceMetrics(vector: m.vector.enumerated().map { i, v in f[i].filter(v, at: t) })
     }
 }
 
@@ -72,12 +65,12 @@ extension FaceMetrics {
     /// Per-field median — robust baseline from a handful of frames (ignores blinks, twitches).
     public static func median(_ samples: [FaceMetrics]) -> FaceMetrics? {
         guard !samples.isEmpty else { return nil }
-        func med(_ k: KeyPath<FaceMetrics, Double>) -> Double {
-            let v = samples.map { $0[keyPath: k] }.sorted()
+        let n = samples[0].vector.count
+        var out = (0..<n).map { i -> Double in
+            let v = samples.map { $0.vector[i] }.sorted()
             return v.count % 2 == 1 ? v[v.count / 2] : (v[v.count / 2 - 1] + v[v.count / 2]) / 2
         }
-        return FaceMetrics(mouthOpen: med(\.mouthOpen), mouthWidth: med(\.mouthWidth),
-                           cornerLift: med(\.cornerLift), eyeOpen: med(\.eyeOpen),
-                           browRaise: med(\.browRaise), rollDegrees: 0)
+        out[5] = 0 // roll baseline: upright
+        return FaceMetrics(vector: out)
     }
 }
