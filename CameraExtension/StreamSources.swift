@@ -91,6 +91,8 @@ final class SinkStreamSource: NSObject, CMIOExtensionStreamSource, @unchecked Se
         if signingID == nil {
             let check = SinkClientPolicy.checkCode(pid: pid)
             Self.log.notice("sink client without signingID allowed, pid=\(pid) code check: \(String(describing: check), privacy: .public)")
+        } else {
+            Self.log.notice("sink client allowed: signingID=\(signingID ?? "", privacy: .public) pid=\(pid)")
         }
         pendingClient.withLock { self.client = client }
         return true

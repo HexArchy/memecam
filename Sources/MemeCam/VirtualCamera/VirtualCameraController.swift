@@ -114,6 +114,9 @@ final class VirtualCameraController {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.refresh() }
         }
+        // `-MemeCamTestPatternOnLaunch YES` (launch argument): feed the test card right away — used to
+        // verify the virtual-camera path of a release build without touching the UI.
+        if UserDefaults.standard.bool(forKey: "MemeCamTestPatternOnLaunch") { testPattern = true }
     }
 
     // MARK: Public API

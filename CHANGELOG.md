@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.1.0 — 2026-10-07
 
 - **Virtual camera health check** — the virtual-camera pill popover is now a live checklist: extension
   installed & enabled, “MemeCam” camera visible to apps, frames flowing (fps), apps using the camera right now
