@@ -23,13 +23,13 @@ enum VirtualCameraState: Equatable, Sendable {
 
     var title: String {
         switch self {
-        case .checking: "Checking…"
-        case .notInstalled: "Not Installed"
-        case .awaitingApproval: "Waiting for Approval"
-        case .connecting: "Connecting…"
-        case .ready: "Ready"
-        case .streaming: "Live"
-        case .failed: "Unavailable"
+        case .checking: String(localized: "Checking…")
+        case .notInstalled: String(localized: "Not Installed")
+        case .awaitingApproval: String(localized: "Waiting for Approval")
+        case .connecting: String(localized: "Connecting…")
+        case .ready: String(localized: "Ready")
+        case .streaming: String(localized: "Live")
+        case .failed: String(localized: "Unavailable")
         }
     }
 }
@@ -104,13 +104,11 @@ final class VirtualCameraController {
 
     func install() {
         guard bundleContainsExtension else {
-            state = .failed("This build has no camera extension. Run `uv run --script scripts/setup-signing.py`, "
-                + "then rebuild with scripts/build-app.sh --install.")
+            state = Self.noExtensionFailure
             return
         }
         guard isInApplicationsFolder else {
-            state = .failed("MemeCam must run from /Applications to install the virtual camera. "
-                + "Use scripts/build-app.sh --install, then open it from there.")
+            state = .failed(String(localized: "MemeCam must run from /Applications to install the virtual camera. Use scripts/build-app.sh --install, then open it from there."))
             return
         }
         installOutcome = .checking
@@ -153,7 +151,7 @@ final class VirtualCameraController {
             activateHandler = nil
             sink.checkNow()
         case .willCompleteAfterReboot:
-            installOutcome = .failed("Restart your Mac to finish installing the MemeCam virtual camera.")
+            installOutcome = .failed(String(localized: "Restart your Mac to finish installing the MemeCam virtual camera."))
             activateHandler = nil
         case .failed(let error):
             installOutcome = .failed(SystemExtensionRequestHandler.message(for: error))
@@ -263,7 +261,7 @@ final class VirtualCameraController {
         if next != state { state = next }
     }
 
-    private static let noExtensionFailure = VirtualCameraState.failed(
-        "This build has no camera extension. Run `uv run --script scripts/setup-signing.py`, "
-            + "then rebuild with scripts/build-app.sh --install.")
+    private static var noExtensionFailure: VirtualCameraState {
+        .failed(String(localized: "This build has no camera extension. Run `uv run --script scripts/setup-signing.py`, then rebuild with scripts/build-app.sh --install."))
+    }
 }

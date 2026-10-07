@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>%lld memes</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>few</key>
+			<string>%lld мема</string>
+			<key>many</key>
+			<string>%lld мемов</string>
+			<key>one</key>
+			<string>%lld мем</string>
+			<key>other</key>
+			<string>%lld мема</string>
+		</dict>
+	</dict>
+	<key>%lld memes ready</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>few</key>
+			<string>%lld мема готовы</string>
+			<key>many</key>
+			<string>%lld мемов готовы</string>
+			<key>one</key>
+			<string>%lld мем готов</string>
+			<key>other</key>
+			<string>%lld мема готовы</string>
+		</dict>
+	</dict>
+	<key>Off, %lld memes</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@count@</string>
+		<key>count</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>few</key>
+			<string>Выключено, %lld мема</string>
+			<key>many</key>
+			<string>Выключено, %lld мемов</string>
+			<key>one</key>
+			<string>Выключено, %lld мем</string>
+			<key>other</key>
+			<string>Выключено, %lld мема</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

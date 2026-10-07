@@ -58,10 +58,10 @@ private extension FaceGuideState {
     var accessibilityValue: String {
         switch self {
         case .hidden: ""
-        case .searching: "Looking for your face"
-        case .locked: "Face found"
-        case .measuring(let p): "Calibrating, \(Int(p * 100)) percent"
-        case .done: "Calibrated"
+        case .searching: String(localized: "Looking for your face")
+        case .locked: String(localized: "Face found")
+        case .measuring(let p): String(localized: "Calibrating, \(Int(p * 100)) percent")
+        case .done: String(localized: "Calibrated")
         }
     }
 }

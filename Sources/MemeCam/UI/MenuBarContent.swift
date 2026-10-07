@@ -14,7 +14,7 @@ struct MenuBarContent: View {
 
             Divider()
 
-            Label(model.cameraState == .running ? model.status.reaction.title : "Camera off",
+            Label(model.cameraState == .running ? model.status.reaction.title : String(localized: "Camera off"),
                   systemImage: model.cameraState == .running ? model.status.reaction.symbol : "video.slash")
                 .font(.headline)
                 .contentTransition(.symbolEffect(.replace))

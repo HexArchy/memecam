@@ -228,14 +228,12 @@ final class MemePipeline: Sendable {
 
     private func cameraIssue(_ f: Feed, now: TimeInterval) -> String? {
         if let problem = f.sessionProblem { return problem }
-        let name = camera.activeDevice?.name ?? "The camera"
+        let name = camera.activeDevice?.name ?? String(localized: "The camera")
         if f.running, now - f.lastFrameTime > 3 {
-            return "\(name) isn't sending video. If it's an iPhone, lock it and place it nearby "
-                + "in landscape, or pick another camera."
+            return String(localized: "\(name) isn't sending video. If it's an iPhone, lock it and place it nearby in landscape, or pick another camera.")
         }
         if f.darkFeed {
-            return "\(name) shows a black picture. Check the lens cover, lighting, "
-                + "or that your iPhone is awake and nearby."
+            return String(localized: "\(name) shows a black picture. Check the lens cover, lighting, or that your iPhone is awake and nearby.")
         }
         return nil
     }

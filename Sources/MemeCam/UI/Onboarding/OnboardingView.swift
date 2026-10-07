@@ -6,11 +6,11 @@ enum OnboardingStep: Int, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .welcome: "Welcome"
-        case .path: "Choose a Start"
-        case .calibrate: "Calibrate"
-        case .memes: "Memes"
-        case .done: "Done"
+        case .welcome: String(localized: "Welcome")
+        case .path: String(localized: "Choose a Start")
+        case .calibrate: String(localized: "Calibrate")
+        case .memes: String(localized: "Memes")
+        case .done: String(localized: "Done")
         }
     }
 }

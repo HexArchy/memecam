@@ -50,7 +50,7 @@ struct MemeTile: View {
         }
     }
 
-    private func badge(_ text: String, symbol: String?) -> some View {
+    private func badge(_ text: LocalizedStringKey, symbol: String?) -> some View {
         HStack(spacing: 3) {
             if let symbol { Image(systemName: symbol) }
             Text(text)

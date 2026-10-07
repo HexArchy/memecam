@@ -86,7 +86,7 @@ final class AppModel {
     /// The preferred camera when it isn't connected right now (shown as "… (not connected)" in the menu).
     var missingPreferredCamera: (id: String, name: String)? {
         guard let id = selectedCameraID, !cameras.contains(where: { $0.id == id }) else { return nil }
-        return (id, preferredCameraName ?? "Selected camera")
+        return (id, preferredCameraName ?? String(localized: "Selected camera"))
     }
     private(set) var status = PipelineStatus()
     private(set) var isCalibrated = false

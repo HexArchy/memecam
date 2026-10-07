@@ -26,9 +26,9 @@ struct DoneStep: View {
             .scaleEffect(visible || reduceMotion ? 1 : 0.5)
             .opacity(visible ? 1 : 0)
             .animation(OnboardingStyle.bouncy(reduceMotion), value: visible)
-            StepHeader(title: "You're all set!",
-                       subtitle: calibrated ? "MemeCam knows your face. Time to make some faces."
-                                            : "Everything is ready. Time to make some faces.")
+            StepHeader(title: String(localized: "You're all set!"),
+                       subtitle: calibrated ? String(localized: "MemeCam knows your face. Time to make some faces.")
+                                            : String(localized: "Everything is ready. Time to make some faces."))
                 .padding(.top, 14)
                 .riseIn(visible, delay: 0.12, reduceMotion: reduceMotion)
             VStack(alignment: .leading, spacing: 12) {
@@ -66,7 +66,7 @@ struct DoneStep: View {
 private struct TipRow: View {
     var keys: String?
     var symbol: String?
-    let text: String
+    let text: LocalizedStringKey
 
     var body: some View {
         HStack(spacing: 12) {

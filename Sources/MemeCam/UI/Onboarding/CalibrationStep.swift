@@ -63,7 +63,7 @@ struct CalibrationStep: View {
         switch model.cameraState {
         case .denied:
             CameraProblem(symbol: "lock.shield", tint: .orange,
-                          message: "Allow MemeCam to use the camera in System Settings \u{203A} Privacy & Security \u{203A} Camera. Video never leaves your Mac.")
+                          message: String(localized: "Allow MemeCam to use the camera in System Settings \u{203A} Privacy & Security \u{203A} Camera. Video never leaves your Mac."))
         case .failed(let message):
             CameraProblem(symbol: "video.slash", tint: .red, message: message)
         case .idle, .starting:
@@ -174,30 +174,32 @@ struct CalibrationStep: View {
 
     private var title: String {
         switch model.cameraState {
-        case .denied: return "Camera access is off"
-        case .failed: return "Couldn't start the camera"
-        case .idle, .starting: return "Relax your face and look at the camera"
+        case .denied: return String(localized: "Camera access is off")
+        case .failed: return String(localized: "Couldn't start the camera")
+        case .idle, .starting: return String(localized: "Relax your face and look at the camera")
         case .running: break
         }
         switch phase {
-        case .aligning: return "Relax your face and look at the camera"
-        case .measuring: return "Hold still\u{2026}"
-        case .success: return "You're calibrated!"
-        case .tryIt: return "Now smile or show \u{1F44D}"
-        case .nailed: return "Nailed it!"
+        case .aligning: return String(localized: "Relax your face and look at the camera")
+        case .measuring: return String(localized: "Hold still\u{2026}")
+        case .success: return String(localized: "You're calibrated!")
+        case .tryIt: return String(localized: "Now smile or show \u{1F44D}")
+        case .nailed: return String(localized: "Nailed it!")
         }
     }
 
     private func subtitle(faceVisible: Bool) -> String? {
-        guard running else { return model.cameraState == .denied ? nil : "MemeCam needs a few frames of your neutral face." }
+        guard running else { return model.cameraState == .denied ? nil : String(localized: "MemeCam needs a few frames of your neutral face.") }
         switch phase {
         case .aligning:
-            if noFaceHint, !faceVisible { return "Can't see a face yet \u{2014} move into the oval and check the lighting." }
-            return faceVisible ? "Perfect \u{2014} keep still for a moment." : "Fit your face inside the oval."
-        case .measuring: return "Measuring your neutral face."
-        case .success: return "Reactions are now tuned to your face."
-        case .tryIt: return "Watch MemeCam react in real time."
-        case .nailed: return "\(nailed?.title ?? "Reaction") \u{2192} meme. It works like this in every call."
+            if noFaceHint, !faceVisible { return String(localized: "Can't see a face yet \u{2014} move into the oval and check the lighting.") }
+            return faceVisible ? String(localized: "Perfect \u{2014} keep still for a moment.") : String(localized: "Fit your face inside the oval.")
+        case .measuring: return String(localized: "Measuring your neutral face.")
+        case .success: return String(localized: "Reactions are now tuned to your face.")
+        case .tryIt: return String(localized: "Watch MemeCam react in real time.")
+        case .nailed:
+            let name = nailed?.title ?? String(localized: "Reaction")
+            return String(localized: "\(name) \u{2192} meme. It works like this in every call.")
         }
     }
 
@@ -304,7 +306,7 @@ private struct LiveMemeCard: View {
         .shadow(color: .black.opacity(0.22), radius: 18, y: 9)
         .animation(.smooth(duration: 0.35), value: meme?.id)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(meme.map { "Meme: \($0.title)" } ?? "No meme yet")
+        .accessibilityLabel(meme.map { String(localized: "Meme: \($0.title)") } ?? String(localized: "No meme yet"))
     }
 }
 

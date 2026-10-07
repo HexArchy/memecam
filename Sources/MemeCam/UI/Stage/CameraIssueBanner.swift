@@ -20,7 +20,7 @@ struct CameraIssueBanner: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            CameraMenu(title: "Switch Camera")
+            CameraMenu(title: String(localized: "Switch Camera"))
                 .menuStyle(.button)
                 .glassButtonStyle(prominent: true)
                 .fixedSize()

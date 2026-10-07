@@ -81,6 +81,7 @@ private struct ReactionCard: View {
                 Text(reaction.title)
                     .font(.caption)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .truncationMode(.tail)
             }
             .frame(width: 76)
@@ -110,7 +111,8 @@ private struct ReactionCard: View {
         }
         .help(canPreview ? "Preview \(reaction.title)" : "Edit the memes for \(reaction.title)")
         .accessibilityLabel(reaction.title)
-        .accessibilityValue([isLive ? "Current reaction" : nil, isOff ? "Off" : nil].compactMap(\.self).joined(separator: ", "))
+        .accessibilityValue([isLive ? String(localized: "Current reaction") : nil, isOff ? String(localized: "Off") : nil]
+            .compactMap(\.self).joined(separator: ", "))
         .accessibilityHint(canPreview ? "Shows this reaction's meme for a few seconds" : "Opens the meme editor")
     }
 

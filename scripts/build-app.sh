@@ -75,6 +75,11 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN_DIR/MemeCam" "$APP/Contents/MacOS/MemeCam"
 cp -R "$ROOT/Resources/Memes" "$APP/Contents/Resources/Memes"
 cp -R "$ROOT/Resources/Models" "$APP/Contents/Resources/Models"
+# Hand-written .strings tables (no Bundle.module): SwiftUI and String(localized:) read Bundle.main.
+for lproj in "$ROOT"/Resources/Localization/*.lproj; do
+  plutil -lint -s "$lproj"/*
+  cp -R "$lproj" "$APP/Contents/Resources/"
+done
 
 ICON_KEY=""
 if [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then
@@ -88,6 +93,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key><string>en</string>
+	<key>CFBundleLocalizations</key><array><string>en</string><string>ru</string></array>
+	<key>CFBundleAllowMixedLocalizations</key><true/>
 	<key>CFBundleExecutable</key><string>MemeCam</string>
 	<key>CFBundleIdentifier</key><string>$APP_ID</string>
 	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>

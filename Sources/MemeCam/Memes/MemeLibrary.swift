@@ -15,9 +15,9 @@ enum AnimalFilter: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .both: "Both"
-        case .cats: "Cats"
-        case .hamsters: "Hamsters"
+        case .both: String(localized: "Both")
+        case .cats: String(localized: "Cats")
+        case .hamsters: String(localized: "Hamsters")
         }
     }
     func allows(_ a: Animal) -> Bool {
@@ -254,7 +254,7 @@ final class MemeLibrary: @unchecked Sendable {
         case notAnImage(String)
         var errorDescription: String? {
             switch self {
-            case .notAnImage(let name): "“\(name)” isn't an image or GIF MemeCam can use."
+            case .notAnImage(let name): String(localized: "“\(name)” isn't an image or GIF MemeCam can use.")
             }
         }
     }

@@ -10,9 +10,9 @@ enum OutputLayout: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .sideBySide: "Side by Side"
-        case .pictureInPicture: "Picture in Picture"
-        case .memeOnly: "Meme Only"
+        case .sideBySide: String(localized: "Side by Side")
+        case .pictureInPicture: String(localized: "Picture in Picture")
+        case .memeOnly: String(localized: "Meme Only")
         }
     }
     var symbol: String {
@@ -45,9 +45,9 @@ struct CompositorInput {
 extension PopStyle {
     var title: String {
         switch self {
-        case .pop: "Pop"
-        case .slide: "Slide"
-        case .fade: "Fade"
+        case .pop: String(localized: "Pop")
+        case .slide: String(localized: "Slide")
+        case .fade: String(localized: "Fade")
         }
     }
 }

@@ -12,7 +12,7 @@ struct CameraMenu: View {
             Picker("Camera", selection: $model.selectedCameraID) {
                 Label("Default Camera", systemImage: "web.camera").tag(String?.none)
                 ForEach(model.cameras) { camera in
-                    Label(camera.isSuspended ? "\(camera.name) (unavailable)" : camera.name,
+                    Label(camera.isSuspended ? String(localized: "\(camera.name) (unavailable)") : camera.name,
                           systemImage: camera.isContinuity ? "iphone" : "web.camera")
                         .tag(String?.some(camera.id))
                 }
@@ -43,6 +43,6 @@ struct CameraMenu: View {
             return camera.name
         }
         if let missing = model.missingPreferredCamera { return missing.name }
-        return "Default Camera"
+        return String(localized: "Default Camera")
     }
 }

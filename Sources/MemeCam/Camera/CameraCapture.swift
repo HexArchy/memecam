@@ -198,14 +198,15 @@ final class CameraCapture: NSObject, @unchecked Sendable, AVCaptureVideoDataOutp
         observers.append(nc.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: nil) {
             [weak self] note in
             let err = note.userInfo?[AVCaptureSessionErrorKey] as? NSError
-            let message = "Camera error: \(err?.localizedDescription ?? "unknown"). Trying to restart it…"
+            let reason = err?.localizedDescription ?? String(localized: "unknown")
+            let message = String(localized: "Camera error: \(reason). Trying to restart it…")
             guard let self else { return }
             queue.async { self.handleRuntimeError(message) }
         })
         observers.append(nc.addObserver(forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: nil) {
             [weak self] _ in
             guard let self else { return }
-            queue.async { self.onProblem?("The camera was interrupted — another app may be using it.") }
+            queue.async { self.onProblem?(String(localized: "The camera was interrupted — another app may be using it.")) }
         })
         observers.append(nc.addObserver(forName: AVCaptureSession.interruptionEndedNotification, object: session, queue: nil) {
             [weak self] _ in
@@ -234,11 +235,11 @@ enum CameraError: LocalizedError {
     case couldNotStart(String)
     var errorDescription: String? {
         switch self {
-        case .suspended(let name): "\(name) is unavailable (is the lid closed?). Pick another camera."
-        case .noCamera: "No camera found."
-        case .cannotAddInput: "The camera is busy or unavailable."
-        case .cannotAddOutput: "Could not read frames from the camera."
-        case .couldNotStart(let name): "\(name) didn't start. It may be in use by another app."
+        case .suspended(let name): String(localized: "\(name) is unavailable (is the lid closed?). Pick another camera.")
+        case .noCamera: String(localized: "No camera found.")
+        case .cannotAddInput: String(localized: "The camera is busy or unavailable.")
+        case .cannotAddOutput: String(localized: "Could not read frames from the camera.")
+        case .couldNotStart(let name): String(localized: "\(name) didn't start. It may be in use by another app.")
         }
     }
 }

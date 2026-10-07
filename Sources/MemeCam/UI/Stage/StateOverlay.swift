@@ -66,7 +66,7 @@ struct StateOverlay: View {
     }
 
     /// The single primary action of the state (the camera itself is chosen in the toolbar).
-    private func actions(primary: String, symbol: String, action: @escaping () -> Void) -> some View {
+    private func actions(primary: LocalizedStringKey, symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(primary, systemImage: symbol)
                 .font(.title3.weight(.semibold))

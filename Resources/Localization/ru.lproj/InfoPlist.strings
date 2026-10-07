@@ -1,0 +1,4 @@
+/* Localized Info.plist values. */
+
+"NSCameraUsageDescription" = "MemeCam следит за твоим лицом и руками, чтобы подобрать подходящий мем.";
+"NSSystemExtensionUsageDescription" = "MemeCam устанавливает виртуальную камеру «MemeCam», которую могут использовать Discord, Telegram и другие приложения.";

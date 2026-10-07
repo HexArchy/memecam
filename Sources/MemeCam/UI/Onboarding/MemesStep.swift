@@ -20,8 +20,8 @@ struct MemesStep: View {
     var body: some View {
         @Bindable var model = model
         VStack(spacing: 0) {
-            StepHeader(title: "Pick your memes",
-                       subtitle: "MemeCam shows the meme that matches your face.")
+            StepHeader(title: String(localized: "Pick your memes"),
+                       subtitle: String(localized: "MemeCam shows the meme that matches your face."))
                 .riseIn(visible, delay: 0.05, reduceMotion: reduceMotion)
             AnimalPicker(selection: $model.animals)
                 .padding(.top, 20)
@@ -32,7 +32,7 @@ struct MemesStep: View {
                 .riseIn(visible, delay: 0.2, reduceMotion: reduceMotion)
             HStack(spacing: 6) {
                 Text("\(total) memes ready").contentTransition(.numericText(value: Double(total)))
-                Text("\u{00B7}")
+                Text(verbatim: "\u{00B7}")
                 Text("Customize anytime with")
                 KeyCap(keys: "\u{21E7}\u{2318}E")
             }

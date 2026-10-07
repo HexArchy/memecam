@@ -43,7 +43,7 @@ private struct MemeReactionGrid: View {
         }
     }
 
-    private func section(_ title: String, reactions: [Reaction]) -> some View {
+    private func section(_ title: LocalizedStringKey, reactions: [Reaction]) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.headline)
@@ -88,6 +88,7 @@ private struct ReactionTile: View {
                     .font(.caption)
                     .labelStyle(.titleOnly)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity)
             }

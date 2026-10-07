@@ -12,21 +12,21 @@ struct PathStep: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 8)
-            StepHeader(title: "How do you want to start?",
-                       subtitle: "Pick one \u{2014} you can change everything later.")
+            StepHeader(title: String(localized: "How do you want to start?"),
+                       subtitle: String(localized: "Pick one \u{2014} you can change everything later."))
                 .riseIn(visible, delay: 0.05, reduceMotion: reduceMotion)
             Spacer(minLength: 24)
             GlassGroup(spacing: 16) {
                 HStack(spacing: 16) {
-                    card(0, symbol: "faceid", title: "Calibrate my face",
-                         detail: "Teach MemeCam your neutral face for sharper reactions.",
-                         footnote: "About 10 seconds", recommended: true, key: "1", action: onCalibrate)
-                    card(1, symbol: "cat.fill", title: "Pick my memes",
-                         detail: "Cats, hamsters or both. Peek at the library.",
-                         footnote: "Change any time", key: "2", action: onMemes)
-                    card(2, symbol: "bolt.fill", title: "Use defaults",
-                         detail: "Jump straight in. Everything is tuned already.",
-                         footnote: "Fastest", key: "3", action: onDefaults)
+                    card(0, symbol: "faceid", title: String(localized: "Calibrate my face"),
+                         detail: String(localized: "Teach MemeCam your neutral face for sharper reactions."),
+                         footnote: String(localized: "About 10 seconds"), recommended: true, key: "1", action: onCalibrate)
+                    card(1, symbol: "cat.fill", title: String(localized: "Pick my memes"),
+                         detail: String(localized: "Cats, hamsters or both. Peek at the library."),
+                         footnote: String(localized: "Change any time"), key: "2", action: onMemes)
+                    card(2, symbol: "bolt.fill", title: String(localized: "Use defaults"),
+                         detail: String(localized: "Jump straight in. Everything is tuned already."),
+                         footnote: String(localized: "Fastest"), key: "3", action: onDefaults)
                 }
             }
             .background {
@@ -56,7 +56,7 @@ struct PathStep: View {
         }
         .buttonStyle(PathCardButtonStyle(recommended: recommended))
         .keyboardShortcut(KeyEquivalent(key), modifiers: [])
-        .accessibilityHint(recommended ? "Recommended. \(footnote)." : footnote)
+        .accessibilityHint(recommended ? String(localized: "Recommended. \(footnote).") : footnote)
         .riseIn(visible, delay: 0.12 + Double(index) * 0.07, reduceMotion: reduceMotion)
     }
 }

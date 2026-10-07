@@ -4,25 +4,25 @@ extension Reaction {
     /// One-line instruction for performing the reaction (accuracy test, onboarding).
     public var howTo: String {
         switch self {
-        case .neutral: "Relax your face and look at the camera."
-        case .smile: "Smile with your mouth closed."
-        case .laugh: "Laugh — big open-mouth smile."
-        case .surprised: "Drop your jaw: mouth wide open, like “whoa!”."
-        case .eyebrowsRaised: "Raise both eyebrows high, keep your mouth closed."
-        case .eyesClosed: "Close your eyes gently and keep them closed."
-        case .sad: "Pout: pull the lip corners down, inner eyebrows up."
-        case .headTilt: "Tilt your head toward one shoulder."
-        case .thumbsUp: "Thumbs up 👍 next to your face."
-        case .thumbsDown: "Thumbs down 👎 next to your face."
-        case .peace: "Peace sign ✌️ — palm toward the camera."
-        case .openPalm: "Show an open palm ✋ — wave hello."
-        case .pointing: "Point up ☝️ with your index finger."
-        case .fist: "Make a fist ✊ beside your face."
-        case .handsUp: "Raise both open hands above your head 🙌."
-        case .facepalm: "Cover your forehead and eyes with your palm 🤦."
-        case .thinking: "Rest your chin on your hand 🤔."
-        case .heart: "Make a heart 🫶 with both hands in front of your chest."
-        case .noFace: "Step out of the frame."
+        case .neutral: String(localized: "Relax your face and look at the camera.", bundle: .main)
+        case .smile: String(localized: "Smile with your mouth closed.", bundle: .main)
+        case .laugh: String(localized: "Laugh — big open-mouth smile.", bundle: .main)
+        case .surprised: String(localized: "Drop your jaw: mouth wide open, like “whoa!”.", bundle: .main)
+        case .eyebrowsRaised: String(localized: "Raise both eyebrows high, keep your mouth closed.", bundle: .main)
+        case .eyesClosed: String(localized: "Close your eyes gently and keep them closed.", bundle: .main)
+        case .sad: String(localized: "Pout: pull the lip corners down, inner eyebrows up.", bundle: .main)
+        case .headTilt: String(localized: "Tilt your head toward one shoulder.", bundle: .main)
+        case .thumbsUp: String(localized: "Thumbs up 👍 next to your face.", bundle: .main)
+        case .thumbsDown: String(localized: "Thumbs down 👎 next to your face.", bundle: .main)
+        case .peace: String(localized: "Peace sign ✌️ — palm toward the camera.", bundle: .main)
+        case .openPalm: String(localized: "Show an open palm ✋ — wave hello.", bundle: .main)
+        case .pointing: String(localized: "Point up ☝️ with your index finger.", bundle: .main)
+        case .fist: String(localized: "Make a fist ✊ beside your face.", bundle: .main)
+        case .handsUp: String(localized: "Raise both open hands above your head 🙌.", bundle: .main)
+        case .facepalm: String(localized: "Cover your forehead and eyes with your palm 🤦.", bundle: .main)
+        case .thinking: String(localized: "Rest your chin on your hand 🤔.", bundle: .main)
+        case .heart: String(localized: "Make a heart 🫶 with both hands in front of your chest.", bundle: .main)
+        case .noFace: String(localized: "Step out of the frame.", bundle: .main)
         }
     }
 }

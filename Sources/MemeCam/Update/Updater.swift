@@ -85,7 +85,7 @@ final class Updater {
     func check(userInitiated: Bool) async {
         // Without a real version we can't tell what's newer — never update (avoids update loops).
         guard currentVersion.range(of: #"^\d+\.\d+\.\d+$"#, options: .regularExpression) != nil else {
-            state = userInitiated ? .failed("This build has no version number, so it can't update itself.") : .idle
+            state = userInitiated ? .failed(String(localized: "This build has no version number, so it can't update itself.")) : .idle
             return
         }
         if case .downloading = state { return }
@@ -111,7 +111,7 @@ final class Updater {
                 state = userInitiated ? .upToDate : .idle
             }
         } catch {
-            state = userInitiated ? .failed("Couldn't check for updates: \(error.localizedDescription)") : .idle
+            state = userInitiated ? .failed(String(localized: "Couldn't check for updates: \(error.localizedDescription)")) : .idle
         }
     }
 
@@ -125,7 +125,7 @@ final class Updater {
         if case .downloading = state { return }
         if case .installing = state { return }
         guard !swapScheduled else {
-            state = .failed("The update is ready. Quit MemeCam to finish installing it.")
+            state = .failed(String(localized: "The update is ready. Quit MemeCam to finish installing it."))
             return
         }
         guard let release = latest, let asset = release.assets.first(where: { $0.name.hasSuffix(".dmg") }) else { return }
@@ -156,7 +156,7 @@ final class Updater {
         NSApp.terminate(nil)
         // Still alive: the user (or another app) cancelled the quit. The helper keeps waiting for us to exit.
         try? await Task.sleep(for: .seconds(10))
-        state = .failed("The update is ready. Quit MemeCam to finish installing it.")
+        state = .failed(String(localized: "The update is ready. Quit MemeCam to finish installing it."))
     }
 
     // MARK: - Steps (nonisolated, run off the main actor)
@@ -321,21 +321,21 @@ final class Updater {
 
     /// User-facing text for anything `installUpdate` can throw.
     nonisolated private static func message(for error: any Error) -> String {
-        if let e = error as? UpdateError { return e.errorDescription ?? "The update failed." }
+        if let e = error as? UpdateError { return e.errorDescription ?? String(localized: "The update failed.") }
         if let e = error as? URLError {
             switch e.code {
             case .notConnectedToInternet, .networkConnectionLost, .dataNotAllowed, .internationalRoamingOff:
-                return "You're offline. Connect to the internet and try again."
+                return String(localized: "You're offline. Connect to the internet and try again.")
             case .timedOut:
-                return "The download timed out. Try again later."
+                return String(localized: "The download timed out. Try again later.")
             case .cannotFindHost, .cannotConnectToHost, .dnsLookupFailed, .badServerResponse:
-                return "GitHub can't be reached right now. Try again later."
+                return String(localized: "GitHub can't be reached right now. Try again later.")
             default:
-                return "The download failed: \(e.localizedDescription)"
+                return String(localized: "The download failed: \(e.localizedDescription)")
             }
         }
         if let e = error as? CocoaError, e.code == .fileWriteOutOfSpace {
-            return "There isn't enough disk space to download the update."
+            return String(localized: "There isn't enough disk space to download the update.")
         }
         return error.localizedDescription
     }
@@ -351,15 +351,14 @@ final class Updater {
         case timedOut(String)
         var errorDescription: String? {
             switch self {
-            case .server: "GitHub didn't respond. Try again later."
-            case .incomplete: "The download was incomplete. Check your connection and try again."
-            case .badPackage: "The downloaded update doesn't contain a valid MemeCam."
-            case .signature: "The update's signature doesn't match this app. It was not installed."
-            case .unsigned: "This build isn't signed, so it can't verify updates."
-            case .notWritable: "MemeCam can't replace itself here: its folder isn't writable or it runs from a disk image. "
-                + "Move it to Applications (or ask an administrator) and try again."
-            case .tool(let name, let output): "\(name) failed: \(output.prefix(200))"
-            case .timedOut(let name): "\(name) didn't finish in time. Try again later."
+            case .server: String(localized: "GitHub didn't respond. Try again later.")
+            case .incomplete: String(localized: "The download was incomplete. Check your connection and try again.")
+            case .badPackage: String(localized: "The downloaded update doesn't contain a valid MemeCam.")
+            case .signature: String(localized: "The update's signature doesn't match this app. It was not installed.")
+            case .unsigned: String(localized: "This build isn't signed, so it can't verify updates.")
+            case .notWritable: String(localized: "MemeCam can't replace itself here: its folder isn't writable or it runs from a disk image. Move it to Applications (or ask an administrator) and try again.")
+            case .tool(let name, let output): String(localized: "\(name) failed: \(String(output.prefix(200)))")
+            case .timedOut(let name): String(localized: "\(name) didn't finish in time. Try again later.")
             }
         }
     }

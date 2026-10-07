@@ -27,10 +27,10 @@ struct UpdateButton: View {
 
     private var title: String {
         switch updater.state {
-        case .available(let v, _): "Update \(v)"
-        case .downloading: "Downloading…"
-        case .installing: "Installing…"
-        case .failed: "Update failed"
+        case .available(let v, _): String(localized: "Update \(v)")
+        case .downloading: String(localized: "Downloading…")
+        case .installing: String(localized: "Installing…")
+        case .failed: String(localized: "Update failed")
         default: ""
         }
     }

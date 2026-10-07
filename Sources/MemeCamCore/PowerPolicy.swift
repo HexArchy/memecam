@@ -37,13 +37,13 @@ public struct PowerMode: Sendable, Equatable {
     public static func decide(windowVisible: Bool, consumerActive: Bool,
                               thermal: ThermalLevel, lowPowerMode: Bool) -> PowerMode {
         if !windowVisible && !consumerActive {
-            return PowerMode(idle: true, visionHz: 0, note: "Idle — saving power")
+            return PowerMode(idle: true, visionHz: 0, note: String(localized: "Idle — saving power", bundle: .main))
         }
         if thermal >= .serious {
-            return PowerMode(visionHz: hotHz, note: "Mac is hot — detection slowed down")
+            return PowerMode(visionHz: hotHz, note: String(localized: "Mac is hot — detection slowed down", bundle: .main))
         }
         if lowPowerMode {
-            return PowerMode(visionHz: lowPowerHz, note: "Low Power Mode — detection slowed down")
+            return PowerMode(visionHz: lowPowerHz, note: String(localized: "Low Power Mode — detection slowed down", bundle: .main))
         }
         return PowerMode()
     }

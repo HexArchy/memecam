@@ -66,32 +66,32 @@ final class SystemExtensionRequestHandler: NSObject, OSSystemExtensionRequestDel
 extension SystemExtensionRequestHandler {
     /// Human-readable explanation for a failed request, with the most likely fix.
     static func message(for error: any Error) -> String {
-        let appsHint = "MemeCam must run from /Applications (scripts/build-app.sh --install)."
-        let signingHint = "Provision signing with `uv run --script scripts/setup-signing.py`, then rebuild with scripts/build-app.sh."
+        let appsHint = String(localized: "MemeCam must run from /Applications (scripts/build-app.sh --install).")
+        let signingHint = String(localized: "Provision signing with `uv run --script scripts/setup-signing.py`, then rebuild with scripts/build-app.sh.")
         guard let error = error as? OSSystemExtensionError else {
             return "\(error.localizedDescription) \(appsHint)"
         }
         switch error.code {
         case .unsupportedParentBundleLocation:
-            return "Move MemeCam to the Applications folder and try again. \(appsHint)"
+            return String(localized: "Move MemeCam to the Applications folder and try again. \(appsHint)")
         case .missingEntitlement:
-            return "This build is not signed with the System Extension entitlement. \(signingHint)"
+            return String(localized: "This build is not signed with the System Extension entitlement. \(signingHint)")
         case .extensionNotFound:
-            return "The camera extension is missing from the app bundle. \(signingHint)"
+            return String(localized: "The camera extension is missing from the app bundle. \(signingHint)")
         case .codeSignatureInvalid, .validationFailed, .extensionMissingIdentifier, .unknownExtensionCategory:
-            return "macOS rejected the camera extension's signature (\(error.code.rawValue)). \(signingHint)"
+            return String(localized: "macOS rejected the camera extension's signature (\(error.code.rawValue)). \(signingHint)")
         case .requestCanceled:
-            return "The install request was canceled. Try again."
+            return String(localized: "The install request was canceled. Try again.")
         case .requestSuperseded:
-            return "Another install request replaced this one. Try again."
+            return String(localized: "Another install request replaced this one. Try again.")
         case .authorizationRequired:
-            return "macOS needs your approval: open System Settings > General > Login Items & Extensions > Camera Extensions."
+            return String(localized: "macOS needs your approval: open System Settings > General > Login Items & Extensions > Camera Extensions.")
         case .forbiddenBySystemPolicy:
-            return "Camera extensions are blocked by a system policy (MDM) on this Mac."
+            return String(localized: "Camera extensions are blocked by a system policy (MDM) on this Mac.")
         case .duplicateExtensionIdentifer:
-            return "Another app installed an extension with the same identifier. Remove old MemeCam copies. \(appsHint)"
+            return String(localized: "Another app installed an extension with the same identifier. Remove old MemeCam copies. \(appsHint)")
         default:
-            return "Installing the virtual camera failed: \(error.localizedDescription) (code \(error.code.rawValue)). \(appsHint)"
+            return String(localized: "Installing the virtual camera failed: \(error.localizedDescription) (code \(error.code.rawValue)). \(appsHint)")
         }
     }
 }

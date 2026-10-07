@@ -10,8 +10,8 @@ final class UIState {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .settings: "Settings"
-            case .memes: "Memes"
+            case .settings: String(localized: "Settings")
+            case .memes: String(localized: "Memes")
             }
         }
         var symbol: String {

@@ -27,7 +27,7 @@ private struct AppIdentity: View {
                 .resizable()
                 .interpolation(.high)
                 .frame(width: 24, height: 24)
-            Text("MemeCam")
+            Text(verbatim: "MemeCam")
                 .font(.headline)
         }
         .padding(.horizontal, 4)

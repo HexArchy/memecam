@@ -64,11 +64,12 @@ private struct TriggerTile: View {
     }
 
     private var help: String {
-        let what = model.specificMeme(for: slot).map { "\u{201C}\($0.title)\u{201D}" } ?? "a random \(slot.reaction.title) meme"
+        let what = model.specificMeme(for: slot).map { "\u{201C}\($0.title)\u{201D}" }
+            ?? String(localized: "a random \(slot.reaction.title) meme")
         let key = showsHotKey ? " (\(TriggerPalette.hotKeyLabel(forSlot: index)))" : ""
-        if model.memesPaused { return "Memes are paused (\u{2303}\u{2325}P)" }
-        if model.cameraState != .running { return "Start the camera to trigger \(what)" }
-        return "Show \(what)\(key) · right-click to assign"
+        if model.memesPaused { return String(localized: "Memes are paused (\u{2303}\u{2325}P)") }
+        if model.cameraState != .running { return String(localized: "Start the camera to trigger \(what)") }
+        return String(localized: "Show \(what)\(key) · right-click to assign")
     }
 }
 

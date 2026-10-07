@@ -13,7 +13,7 @@ struct WelcomeStep: View {
             Spacer(minLength: 12)
             AppIconHero()
                 .padding(.bottom, 14)
-            Text("MemeCam")
+            Text(verbatim: "MemeCam")
                 .font(OnboardingStyle.heroTitle(40))
                 .accessibilityAddTraits(.isHeader)
                 .riseIn(visible, delay: 0.15, reduceMotion: reduceMotion)

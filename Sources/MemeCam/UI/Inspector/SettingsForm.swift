@@ -104,6 +104,8 @@ struct SettingsForm: View {
                     .foregroundStyle(.secondary)
             }
 
+            LanguageSection()
+
             UpdatesSection()
 
             AccuracySection()
@@ -127,7 +129,7 @@ private struct DebugRows: View {
         row("Camera", status.cameraName.isEmpty ? "—" : status.cameraName)
         row("Output FPS", status.outputFPS.formatted(.number.precision(.fractionLength(1))))
         row("Inference", "\(status.inferenceMs.formatted(.number.precision(.fractionLength(1)))) ms")
-        row("Vision rate", status.idle ? "paused" : "\(Int(status.visionHz)) Hz")
+        row("Vision rate", status.idle ? String(localized: "paused") : "\(Int(status.visionHz)) Hz")
         if let note = status.powerNote { row("Power", note) }
         if let m = status.metrics {
             row("Mouth open", fmt(m.mouthOpen))
@@ -137,13 +139,13 @@ private struct DebugRows: View {
             row("Brow raise", fmt(m.browRaise))
             row("Roll", "\(m.rollDegrees.formatted(.number.precision(.fractionLength(1))))\u{00B0}")
         } else {
-            row("Face", "none")
+            row("Face", String(localized: "none"))
         }
     }
 
     private func fmt(_ v: Double) -> String { v.formatted(.number.precision(.fractionLength(3))) }
 
-    private func row(_ title: String, _ value: String) -> some View {
+    private func row(_ title: LocalizedStringKey, _ value: String) -> some View {
         LabeledContent(title) { Text(value).monospacedDigit() }
             .font(.callout)
     }

@@ -72,7 +72,7 @@ struct MemeReactionDetail: View {
                     Text(reaction.title)
                         .font(.title2.bold())
                         .accessibilityAddTraits(.isHeader)
-                    Text(count == 1 ? "1 meme" : "\(count) memes")
+                    Text("\(count) memes")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

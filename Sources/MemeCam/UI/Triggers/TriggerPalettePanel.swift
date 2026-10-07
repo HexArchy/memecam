@@ -77,7 +77,7 @@ private final class TriggerPanel: NSPanel {
         isMovableByWindowBackground = true
         isReleasedWhenClosed = false
         animationBehavior = .utilityWindow
-        title = "Trigger Palette"
+        title = String(localized: "Trigger Palette")
         setAccessibilitySubrole(.floatingWindow)
     }
 
@@ -139,8 +139,8 @@ private struct TriggerPaletteView: View {
     }
 
     private var statusText: String {
-        if model.memesPaused { return "Paused · \u{2303}\u{2325}P" }
-        if model.cameraState != .running { return "Camera off" }
-        return model.slotHotKeysEnabled ? "\u{2303}\u{2325}1–9" : "Triggers"
+        if model.memesPaused { return String(localized: "Paused · \u{2303}\u{2325}P") }
+        if model.cameraState != .running { return String(localized: "Camera off") }
+        return model.slotHotKeysEnabled ? "\u{2303}\u{2325}1–9" : String(localized: "Triggers")
     }
 }

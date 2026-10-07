@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Russian localization** — the whole UI (onboarding, inspector, menus, menu bar extra, accuracy test,
+  updater and camera/virtual-camera errors, reaction names and instructions, camera permission prompts)
+  follows the system language. Inspector › *Language* overrides it for MemeCam only (System / English /
+  Русский) with a *Restart* button. Strings live in `Resources/Localization/{en,ru}.lproj`;
+  `scripts/check-strings.sh` verifies the tables against the keys the compiler extracts from the code.
 - **Trigger palette** — nine manual trigger slots (default: smile, laugh, surprised, thumbs up/down, heart,
   facepalm, thinking, hands up). Global hotkeys **⌃⌥1 … ⌃⌥9** fire them while Discord/Zoom stays frontmost
   (switch off in inspector › Triggers); a 3×3 grid in the menu bar extra; a small floating Liquid Glass palette

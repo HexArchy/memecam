@@ -24,12 +24,12 @@ extension VirtualCameraState {
 
     var detail: String {
         switch self {
-        case .checking: "Checking the MemeCam virtual camera."
-        case .notInstalled: "Install the virtual camera so other apps can use MemeCam."
-        case .awaitingApproval: "Allow MemeCam in System Settings > General > Login Items & Extensions > Camera Extensions."
-        case .connecting: "Connecting to the virtual camera."
-        case .ready: "Installed. Start the camera (⌘R) to send memes — until then other apps see “MemeCam is paused”."
-        case .streaming: "Other apps can pick the \u{201C}MemeCam\u{201D} camera."
+        case .checking: String(localized: "Checking the MemeCam virtual camera.")
+        case .notInstalled: String(localized: "Install the virtual camera so other apps can use MemeCam.")
+        case .awaitingApproval: String(localized: "Allow MemeCam in System Settings > General > Login Items & Extensions > Camera Extensions.")
+        case .connecting: String(localized: "Connecting to the virtual camera.")
+        case .ready: String(localized: "Installed. Start the camera (⌘R) to send memes — until then other apps see “MemeCam is paused”.")
+        case .streaming: String(localized: "Other apps can pick the \u{201C}MemeCam\u{201D} camera.")
         case .failed(let message): message
         }
     }
@@ -37,10 +37,10 @@ extension VirtualCameraState {
     /// Title of the one action that moves this state forward, if any.
     var actionTitle: String? {
         switch self {
-        case .notInstalled: "Install Virtual Camera"
-        case .awaitingApproval: "Open System Settings"
-        case .failed: "Retry"
-        case .ready: "Start Camera"
+        case .notInstalled: String(localized: "Install Virtual Camera")
+        case .awaitingApproval: String(localized: "Open System Settings")
+        case .failed: String(localized: "Retry")
+        case .ready: String(localized: "Start Camera")
         case .checking, .connecting, .streaming: nil
         }
     }
@@ -74,7 +74,7 @@ struct VirtualCameraPill: View {
                 Circle()
                     .fill(state.tint.gradient)
                     .frame(width: 8, height: 8)
-                Text(state == .streaming ? "Virtual Camera On" : state.title)
+                Text(state == .streaming ? String(localized: "Virtual Camera On") : state.title)
                     .contentTransition(.interpolate)
             }
             .padding(.horizontal, 4)
@@ -99,7 +99,7 @@ struct VirtualCameraDetail: View {
         let state = model.virtualCamera.state
         VStack(alignment: .leading, spacing: 10) {
             Label {
-                Text(state == .streaming ? "Virtual camera is on" : state.title).font(.headline)
+                Text(state == .streaming ? String(localized: "Virtual camera is on") : state.title).font(.headline)
             } icon: {
                 Image(systemName: state.symbol).foregroundStyle(state.tint)
             }

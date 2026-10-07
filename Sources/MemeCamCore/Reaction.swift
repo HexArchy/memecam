@@ -15,25 +15,25 @@ public enum Reaction: String, CaseIterable, Codable, Sendable, Identifiable {
 
     public var title: String {
         switch self {
-        case .neutral: "Neutral"
-        case .smile: "Smile"
-        case .laugh: "Laugh"
-        case .surprised: "Surprised"
-        case .eyebrowsRaised: "Eyebrows Up"
-        case .eyesClosed: "Eyes Closed"
-        case .sad: "Sad"
-        case .headTilt: "Head Tilt"
-        case .thumbsUp: "Thumbs Up"
-        case .thumbsDown: "Thumbs Down"
-        case .peace: "Peace"
-        case .openPalm: "Open Palm"
-        case .pointing: "Pointing"
-        case .fist: "Fist"
-        case .handsUp: "Hands Up"
-        case .facepalm: "Facepalm"
-        case .thinking: "Thinking"
-        case .heart: "Heart"
-        case .noFace: "Nobody Here"
+        case .neutral: String(localized: "Neutral", bundle: .main)
+        case .smile: String(localized: "Smile", bundle: .main)
+        case .laugh: String(localized: "Laugh", bundle: .main)
+        case .surprised: String(localized: "Surprised", bundle: .main)
+        case .eyebrowsRaised: String(localized: "Eyebrows Up", bundle: .main)
+        case .eyesClosed: String(localized: "Eyes Closed", bundle: .main)
+        case .sad: String(localized: "Sad", bundle: .main)
+        case .headTilt: String(localized: "Head Tilt", bundle: .main)
+        case .thumbsUp: String(localized: "Thumbs Up", bundle: .main)
+        case .thumbsDown: String(localized: "Thumbs Down", bundle: .main)
+        case .peace: String(localized: "Peace", bundle: .main)
+        case .openPalm: String(localized: "Open Palm", bundle: .main)
+        case .pointing: String(localized: "Pointing", bundle: .main)
+        case .fist: String(localized: "Fist", bundle: .main)
+        case .handsUp: String(localized: "Hands Up", bundle: .main)
+        case .facepalm: String(localized: "Facepalm", bundle: .main)
+        case .thinking: String(localized: "Thinking", bundle: .main)
+        case .heart: String(localized: "Heart", bundle: .main)
+        case .noFace: String(localized: "Nobody Here", bundle: .main)
         }
     }
 

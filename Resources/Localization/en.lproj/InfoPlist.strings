@@ -1,0 +1,4 @@
+/* Localized Info.plist values. */
+
+"NSCameraUsageDescription" = "MemeCam watches your face and hands to pick a matching meme.";
+"NSSystemExtensionUsageDescription" = "MemeCam installs a virtual camera named “MemeCam” that Discord, Telegram and other apps can use.";
