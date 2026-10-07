@@ -46,11 +46,26 @@ enum PlaceholderRenderer {
                            cornerWidth: barW / 3, cornerHeight: barW / 3, transform: nil))
         ctx.fillPath()
 
-        drawCentered("MemeCam is paused", in: ctx, centerX: w / 2, baselineY: h * 0.46,
+        let text = Text.current
+        drawCentered(text.title, in: ctx, centerX: w / 2, baselineY: h * 0.46,
                      size: h * 0.075, weight: .semibold, alpha: 0.92)
-        drawCentered("Start the camera in MemeCam to go live", in: ctx, centerX: w / 2, baselineY: h * 0.38,
+        drawCentered(text.subtitle, in: ctx, centerX: w / 2, baselineY: h * 0.38,
                      size: h * 0.035, weight: .regular, alpha: 0.55)
         return buffer
+    }
+
+    /// The extension can't read the app's string tables, so its two lines carry their own translations.
+    struct Text {
+        let title: String
+        let subtitle: String
+
+        static let english = Text(title: "MemeCam is paused", subtitle: "Start the camera in MemeCam to go live")
+        static let russian = Text(title: "MemeCam на паузе", subtitle: "Включи камеру в MemeCam, чтобы выйти в эфир")
+
+        /// Russian when the system's preferred language is Russian, English otherwise.
+        static var current: Text {
+            Locale.preferredLanguages.first?.hasPrefix("ru") == true ? russian : english
+        }
     }
 
     private static func drawCentered(_ text: String, in ctx: CGContext, centerX: CGFloat, baselineY: CGFloat,

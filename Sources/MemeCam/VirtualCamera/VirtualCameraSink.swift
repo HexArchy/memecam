@@ -18,10 +18,22 @@ import os
 ///   appearing / disappearing immediately.
 /// - Consumer monitoring (idle mode): while enabled, every tick reads how many apps have the camera
 ///   open and reports changes to the main actor.
+/// - Health monitoring (pill popover): while enabled, every tick reports the delivered frame rate and the
+///   number of apps reading the camera.
+/// - Test pattern: while an override feed is active, frames from the pipeline (`send`) are dropped and
+///   only `sendOverride` frames reach the extension.
 ///
 /// `@unchecked Sendable` invariant: the hot-path state is behind `hot`; everything else is only touched
 /// on `io` (serial).
 final class VirtualCameraSink: FrameSink, @unchecked Sendable {
+    /// Live numbers for the health checklist.
+    struct Health: Equatable, Sendable {
+        /// Frames per second enqueued into the extension (rounded to 0.5).
+        var fps: Double = 0
+        /// Apps reading the MemeCam camera; nil when unknown (device missing, older extension).
+        var clients: Int?
+    }
+
     enum Status: Equatable, Sendable {
         /// The MemeCam CMIO device is not visible (extension not installed, not approved, or restarting).
         case deviceMissing
@@ -38,6 +50,10 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
         var format: CMVideoFormatDescription?
         var lastFrameNanos: UInt64 = 0
         var lastEnqueueNanos: UInt64 = 0
+        /// Frames enqueued so far (health fps).
+        var enqueued: UInt64 = 0
+        /// The test pattern owns the feed; pipeline frames are dropped.
+        var override = false
     }
 
     // CMSimpleQueue / CMFormatDescription are not Sendable; they never leave the lock except on `io`
@@ -63,6 +79,10 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
     private var monitorConsumers = false
     private var reportedConsumer: Bool?
     private var consumerHandler: (@MainActor @Sendable (Bool) -> Void)?
+    private var healthHandler: (@MainActor @Sendable (Health) -> Void)?
+    private var reportedHealth: Health?
+    private var fpsSample: (count: UInt64, nanos: UInt64) = (0, 0)
+    private var fps = 0.0
 
     init() {
         io.async { [self] in startMonitoring() }
@@ -81,6 +101,20 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
     /// changes while monitoring is on (and once right after monitoring is switched on).
     func setConsumerHandler(_ handler: @escaping @MainActor @Sendable (Bool) -> Void) {
         io.async { [self] in consumerHandler = handler }
+    }
+
+    /// `handler` runs on the main actor with fresh numbers every 0.5 s while it is set; nil stops it.
+    func monitorHealth(_ handler: (@MainActor @Sendable (Health) -> Void)?) {
+        io.async { [self] in
+            healthHandler = handler
+            reportedHealth = nil
+            if handler != nil { checkHealth(now: Self.nowNanos()) }
+        }
+    }
+
+    /// While on, pipeline frames are ignored and only `sendOverride` feeds the camera.
+    func setOverride(_ on: Bool) {
+        hot.withLockUnchecked { $0.override = on }
     }
 
     /// Consumer monitoring costs one CMIO property read per tick, so it only runs while the answer
@@ -117,8 +151,18 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
     // MARK: FrameSink (capture queue)
 
     func send(_ pixelBuffer: CVPixelBuffer, time: CMTime) {
+        enqueue(pixelBuffer, override: false)
+    }
+
+    /// Test-pattern frames (any thread).
+    func sendOverride(_ pixelBuffer: CVPixelBuffer) {
+        enqueue(pixelBuffer, override: true)
+    }
+
+    private func enqueue(_ pixelBuffer: CVPixelBuffer, override: Bool) {
         let now = Self.nowNanos()
         hot.withLockUnchecked { h in
+            guard h.override == override else { return }
             h.lastFrameNanos = now
             guard let queue = h.queue,
                   CMSimpleQueueGetCount(queue) < CMSimpleQueueGetCapacity(queue) else { return } // drop
@@ -139,6 +183,7 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
             let element = Unmanaged.passRetained(sample)
             if CMSimpleQueueEnqueue(queue, element: element.toOpaque()) == noErr {
                 h.lastEnqueueNanos = now
+                h.enqueued &+= 1
             } else {
                 element.release()
             }
@@ -166,6 +211,7 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
         let now = Self.nowNanos()
         checkPresence(force: false)
         if monitorConsumers { checkConsumers() }
+        if healthHandler != nil { checkHealth(now: now) }
         let (lastFrame, lastEnqueue) = hot.withLockUnchecked { ($0.lastFrameNanos, $0.lastEnqueueNanos) }
         let framesFlowing = lastFrame > 0 && now &- lastFrame < 2_000_000_000
         if stream != 0 {
@@ -275,6 +321,21 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
         reportedConsumer = active
         log.info("virtual camera consumer active: \(active)")
         Task { @MainActor in handler(active) }
+    }
+
+    private func checkHealth(now: UInt64) {
+        let count = hot.withLockUnchecked { $0.enqueued }
+        if fpsSample.nanos > 0, now > fpsSample.nanos {
+            let instant = Double(count &- fpsSample.count) / (Double(now - fpsSample.nanos) / 1e9)
+            fps = fps * 0.5 + instant * 0.5
+            if instant == 0 { fps = 0 }
+        }
+        fpsSample = (count, now)
+        let clients = presentDevice == 0 ? nil : CMIO.sourceClients(presentDevice)
+        let health = Health(fps: (fps * 2).rounded() / 2, clients: clients)
+        guard health != reportedHealth, let handler = healthHandler else { return }
+        reportedHealth = health
+        Task { @MainActor in handler(health) }
     }
 
     private func scheduleRetry(now: UInt64) {

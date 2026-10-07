@@ -25,6 +25,9 @@ struct WelcomeStep: View {
             ReactionDemo()
                 .padding(.top, 26)
                 .riseIn(visible, delay: 0.32, reduceMotion: reduceMotion)
+            PrivacyNote()
+                .padding(.top, 14)
+                .riseIn(visible, delay: 0.38, reduceMotion: reduceMotion)
             Spacer(minLength: 16)
             Button(action: onStart) {
                 Text("Get Started")

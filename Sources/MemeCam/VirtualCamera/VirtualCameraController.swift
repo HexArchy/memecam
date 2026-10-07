@@ -2,6 +2,7 @@ import AppKit
 import CoreMedia
 import CoreVideo
 import Foundation
+import MemeCamCore
 import Observation
 import os
 import SystemExtensions
@@ -45,6 +46,24 @@ final class VirtualCameraController {
     private(set) var state: VirtualCameraState = .checking
     /// Add to the pipeline; forwards composited frames to the extension's sink stream.
     let sink = VirtualCameraSink()
+    /// The "MemeCam" CMIO device exists (apps can pick it).
+    private(set) var deviceVisible = false
+    /// Live frame rate and client count; only updated while a health view is on screen.
+    private(set) var health = VirtualCameraSink.Health()
+    /// Feeds the animated test card instead of MemeCam's output (camera on or off).
+    var testPattern = false {
+        didSet {
+            guard oldValue != testPattern else { return }
+            log.notice("test pattern \(self.testPattern ? "on" : "off", privacy: .public)")
+            if testPattern {
+                sink.setOverride(true)
+                testPatternSource.start()
+            } else {
+                testPatternSource.stop()
+                sink.setOverride(false)
+            }
+        }
+    }
 
     private enum ExtensionInfo: Equatable {
         case unknown, notFound, awaitingApproval, enabled
@@ -58,6 +77,8 @@ final class VirtualCameraController {
     @ObservationIgnored private var activateHandler: SystemExtensionRequestHandler?
     @ObservationIgnored private var propertiesHandler: SystemExtensionRequestHandler?
     @ObservationIgnored private var activeObserver: (any NSObjectProtocol)?
+    @ObservationIgnored private let testPatternSource: TestPatternSource
+    @ObservationIgnored private var healthWatchers = 0
 
     @ObservationIgnored private var replaceRequested = false
     /// Waits for the virtual camera to be idle before replacing the extension after an app update.
@@ -83,6 +104,9 @@ final class VirtualCameraController {
     }
 
     init() {
+        testPatternSource = TestPatternSource(title: String(localized: "MemeCam test")) { [sink] in
+            sink.sendOverride($0)
+        }
         sink.setStatusHandler { [weak self] status in self?.sinkStatusChanged(status) }
         // Returning from System Settings after approving the extension: re-check automatically.
         activeObserver = NotificationCenter.default.addObserver(
@@ -118,6 +142,35 @@ final class VirtualCameraController {
         handler.activate(VirtualCameraIDs.extensionBundleID)
     }
 
+    /// Health views call this on appear / disappear; the sink reports fps and clients while any is shown.
+    func beginHealthMonitoring() {
+        healthWatchers += 1
+        guard healthWatchers == 1 else { return }
+        sink.checkNow()
+        sink.monitorHealth { [weak self] health in self?.health = health }
+    }
+
+    func endHealthMonitoring() {
+        healthWatchers = max(0, healthWatchers - 1)
+        guard healthWatchers == 0 else { return }
+        sink.monitorHealth(nil)
+        health = VirtualCameraSink.Health()
+    }
+
+    /// Inputs for the health checklist.
+    func checklistInput(cameraRunning: Bool) -> VirtualCameraChecklist.Input {
+        let ext: VirtualCameraChecklist.ExtensionStatus = switch state {
+        case .notInstalled: .notInstalled
+        case .awaitingApproval: .awaitingApproval
+        case .failed: .failed
+        case .ready, .streaming, .connecting: .enabled
+        case .checking: extensionInfo == .enabled ? .enabled : .unknown
+        }
+        return VirtualCameraChecklist.Input(extensionStatus: ext, deviceVisible: deviceVisible, fps: health.fps,
+                                            cameraRunning: cameraRunning, testPattern: testPattern,
+                                            clients: health.clients)
+    }
+
     func openSystemSettings() {
         let candidates = [
             "x-apple.systempreferences:com.apple.LoginItems-Settings.extension",
@@ -133,6 +186,8 @@ final class VirtualCameraController {
 
     private func sinkStatusChanged(_ status: VirtualCameraSink.Status) {
         sinkStatus = status
+        let visible = status != .deviceMissing
+        if visible != deviceVisible { deviceVisible = visible }
         if status != .deviceMissing {
             // The device exists, so the extension is installed and enabled.
             extensionInfo = .enabled

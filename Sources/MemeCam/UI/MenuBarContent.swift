@@ -9,7 +9,13 @@ struct MenuBarContent: View {
 
     var body: some View {
         @Bindable var model = model
+        let cameraOn = model.cameraState == .running || model.cameraState == .starting
         VStack(alignment: .leading, spacing: 12) {
+            if cameraOn {
+                StopCameraRow()
+                Divider()
+            }
+
             PauseToggleRow()
 
             Divider()
@@ -33,13 +39,14 @@ struct MenuBarContent: View {
 
             TriggersSection()
 
-            Button { model.toggle() } label: {
-                Label(model.cameraState == .running ? "Stop Camera" : "Start Camera",
-                      systemImage: model.cameraState == .running ? "stop.fill" : "video.fill")
-                    .frame(maxWidth: .infinity)
+            if !cameraOn {
+                Button { model.start() } label: {
+                    Label("Start Camera", systemImage: "video.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .controlSize(.large)
+                .buttonStyle(.borderedProminent)
             }
-            .controlSize(.large)
-            .buttonStyle(.borderedProminent)
 
             Picker("Layout", selection: $model.layout) {
                 ForEach(OutputLayout.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
@@ -122,5 +129,30 @@ private struct PauseToggleRow: View {
         .controlSize(.large)
         .accessibilityLabel("Memes")
         .accessibilityValue(paused ? "Paused" : "On")
+    }
+}
+
+/// While the camera runs: what goes out right now and a one-click "Stop Camera", always first.
+private struct StopCameraRow: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Label {
+                Text(model.presence.title)
+                    .font(.callout.weight(.medium))
+                    .fixedSize(horizontal: false, vertical: true)
+            } icon: {
+                Image(systemName: model.presence.menuBarSymbol)
+                    .foregroundStyle(.red)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            Spacer(minLength: 4)
+            Button("Stop Camera", systemImage: "stop.fill") { model.stop() }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+                .help("Turns the camera off. Apps using MemeCam see \u{201C}MemeCam is paused\u{201D}.")
+        }
+        .accessibilityElement(children: .contain)
     }
 }

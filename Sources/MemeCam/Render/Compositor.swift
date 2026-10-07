@@ -40,6 +40,11 @@ struct CompositorInput {
     var popStyle: PopStyle = .fade
     /// Quiet mode with `.pop` / `.slide`: the camera stays full-frame and the meme floats over it as a card.
     var quietMode = false
+    /// "Be right back": 0 = not shown, 1 = blurred camera + card; in between = the card's appear (or, with
+    /// `awayAppearing == false`, disappear) animation, linear in time.
+    var awayPresence: Double = 0
+    var awayAppearing = true
+    var awayStyle: PopStyle = .pop
 }
 
 extension PopStyle {
@@ -60,6 +65,8 @@ final class Compositor: @unchecked Sendable {
     private let context: CIContext
     private var pool: CVPixelBufferPool?
     private var captionCache: (String, CIImage)?
+    /// The "Be right back" card, rendered on first use.
+    private var awayCard: CIImage?
     /// Sticker frames (outline + shadow) and corner masks per card size; rendered once, reused every frame.
     private var cardCache: [CardKey: CardDecoration] = [:]
     private let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
@@ -113,8 +120,40 @@ final class Compositor: @unchecked Sendable {
             }
         }
 
-        context.render(image, to: out, bounds: canvas, colorSpace: colorSpace)
+        let final = input.awayPresence > 0 ? composeAway(over: image, cameraOnly: cameraOnly, input, canvas: canvas)
+                                           : image
+        context.render(final, to: out, bounds: canvas, colorSpace: colorSpace)
         return out
+    }
+
+    /// Blurred camera with the "Be right back" card popping in over whatever was on screen.
+    private func composeAway(over image: CIImage, cameraOnly: CIImage, _ input: CompositorInput,
+                             canvas: CGRect) -> CIImage {
+        let backdrop = blurredFill(cameraOnly, in: canvas)
+        let mix = PopAnimation.smoothstep(input.awayPresence)
+        var result: CIImage
+        if mix >= 1 {
+            result = backdrop
+        } else {
+            let f = CIFilter.dissolveTransition()
+            f.inputImage = image
+            f.targetImage = backdrop
+            f.time = Float(mix)
+            result = f.outputImage?.cropped(to: canvas) ?? image
+        }
+        if awayCard == nil {
+            awayCard = AwayCard.render(title: String(localized: "Be right back")).map { CIImage(cgImage: $0) }
+        }
+        guard let card = awayCard else { return result }
+        let phase = input.awayAppearing ? input.awayPresence : 1 - input.awayPresence
+        let pose = PopAnimation.pose(input.awayStyle, progress: phase, appearing: input.awayAppearing)
+        let e = card.extent
+        let t = CGAffineTransform(translationX: -e.midX, y: -e.midY)
+            .concatenating(CGAffineTransform(scaleX: pose.scale, y: pose.scale))
+            .concatenating(CGAffineTransform(rotationAngle: pose.rotation * .pi / 180))
+            .concatenating(CGAffineTransform(translationX: canvas.midX, y: canvas.midY))
+        result = withOpacity(card.transformed(by: t), pose.opacity).composited(over: result)
+        return result.cropped(to: canvas)
     }
 
     private func composeLayout(_ input: CompositorInput, camera cam: CIImage?, canvas: CGRect,

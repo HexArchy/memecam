@@ -37,6 +37,8 @@ final class AppModel {
     var cooldown: Double = 4 { didSet { persistAndPush() } }
     /// How memes pop up in quiet mode. Falls back to `.fade` while macOS "Reduce motion" is on.
     var popStyle: PopStyle = .pop { didSet { persistAndPush() } }
+    /// "Nobody here" for this long → the "Be right back" card until a face shows up again.
+    var awayDelay: AwayDelay = .default { didSet { persistAndPush() } }
     /// The camera the user picked (nil = system default). It is a preference, not the device in use: when it
     /// is missing (iPhone out of range) MemeCam falls back to the default and switches back when it returns.
     var selectedCameraID: String? {
@@ -89,6 +91,8 @@ final class AppModel {
         return (id, preferredCameraName ?? String(localized: "Selected camera"))
     }
     private(set) var status = PipelineStatus()
+    /// Mirrors `status.away`, changing only when it flips (the menu bar icon must not re-render 10×/s).
+    private(set) var isAway = false
     private(set) var isCalibrated = false
 
     /// Bumped whenever the meme library changes, so views re-read it.
@@ -228,7 +232,11 @@ final class AppModel {
         pipeline.addSink(preview, onlyWhileWindowVisible: true)
         pipeline.addSink(virtualCamera.sink)
         pipeline.onStatus = { [weak self] status in
-            Task { @MainActor in self?.status = status }
+            Task { @MainActor in
+                guard let self else { return }
+                self.status = status
+                if status.away != self.isAway { self.isAway = status.away }
+            }
         }
         pipeline.onRecordingFinished = { [weak self] rec in
             let url = AppModel.save(rec)
@@ -295,6 +303,12 @@ final class AppModel {
         pipeline.force(meme: meme, seconds: forcedSeconds)
     }
 
+    /// What the menu bar icon shows: camera off / live / memes paused / away.
+    var presence: CameraPresence {
+        CameraPresence.decide(cameraOn: cameraState == .running || cameraState == .starting,
+                              memesPaused: memesPaused, away: isAway)
+    }
+
     /// A trigger would show something now (camera running, memes not paused).
     var canTrigger: Bool { cameraState == .running && !memesPaused }
 
@@ -354,7 +368,8 @@ final class AppModel {
                          showCaption: showCaption, mirror: mirror, detectHands: detectHands,
                          detectExpressions: detectExpressions, quietMode: quietMode, popDuration: popDuration,
                          paused: memesPaused, disabledReactions: disabledReactions, cooldown: cooldown,
-                         popStyle: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? .fade : popStyle)
+                         popStyle: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? .fade : popStyle,
+                         awayAfter: awayDelay.seconds)
     }
 
     // MARK: Camera lifecycle
@@ -385,6 +400,7 @@ final class AppModel {
             // A stop() that arrived meanwhile is queued right behind us and stops the session.
             guard generation == cameraGeneration else { return }
             activeCamera = device
+            virtualCamera.testPattern = false // the real camera takes over the virtual camera
             recomputeWindowVisibility() // started from the menu bar with the window closed: maybe idle right away
             cameraState = .running
         } catch {
@@ -606,6 +622,7 @@ final class AppModel {
         defaults.set(disabledReactions.map(\.rawValue).sorted(), forKey: "disabledReactions")
         defaults.set(cooldown, forKey: "cooldown")
         defaults.set(popStyle.rawValue, forKey: "popStyle")
+        defaults.set(awayDelay.rawValue, forKey: "awayDelay")
         defaults.set(selectedCameraID, forKey: "cameraID")
         defaults.set(stopCameraWhenLocked, forKey: "stopCameraWhenLocked")
     }
@@ -625,6 +642,9 @@ final class AppModel {
         if let v = defaults.stringArray(forKey: "disabledReactions") { disabledReactions = Set(v.compactMap(Reaction.init)) }
         if defaults.object(forKey: "cooldown") != nil { cooldown = defaults.double(forKey: "cooldown") }
         if let v = defaults.string(forKey: "popStyle").flatMap(PopStyle.init) { popStyle = v }
+        if defaults.object(forKey: "awayDelay") != nil, let v = AwayDelay(rawValue: defaults.integer(forKey: "awayDelay")) {
+            awayDelay = v
+        }
         selectedCameraID = defaults.string(forKey: "cameraID")
         preferredCameraName = defaults.string(forKey: "cameraName")
         if defaults.object(forKey: "stopCameraWhenLocked") != nil { stopCameraWhenLocked = defaults.bool(forKey: "stopCameraWhenLocked") }

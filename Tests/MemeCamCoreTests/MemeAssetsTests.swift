@@ -134,3 +134,14 @@ import Testing
     #expect(!fm.fileExists(atPath: missing.path))
     #expect(try String(contentsOf: log, encoding: .utf8).contains("update FAILED: could not move"))
 }
+
+@Test func bundledMemesHaveRussianTitles() throws {
+    let url = URL(filePath: #filePath).deletingLastPathComponent().appending(path: "../../Resources/Memes/memes.json")
+    let root = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
+    let memes = try #require(root?["memes"] as? [[String: Any]])
+    #expect(!memes.isEmpty)
+    for meme in memes {
+        let ru = meme["title_ru"] as? String ?? ""
+        #expect(!ru.trimmingCharacters(in: .whitespaces).isEmpty, "\(meme["file"] ?? "?") has no title_ru")
+    }
+}

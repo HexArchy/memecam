@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+- **Virtual camera health check** — the virtual-camera pill popover is now a live checklist: extension
+  installed & enabled, “MemeCam” camera visible to apps, frames flowing (fps), apps using the camera right now
+  (from the extension's client count), each with a one-click fix (*Install* / *Open System Settings* /
+  *Start Camera*). *Send test pattern* feeds an animated test card (colour bars, “MemeCam test”, a running clock)
+  to the virtual camera, so you can check that Discord or Telegram see MemeCam without turning the camera on;
+  starting the camera switches it off.
+- **Be right back** — after “Nobody here” has been on for a while (inspector › Picture › *Away after*:
+  Off / 10 s / 30 s / 1 min, default 30 s) the call sees a blurred camera with a “Be right back” card that pops
+  in like a sticker, until your face is back. Detection drops to 4 Hz meanwhile; an “Away” badge shows on the stage.
+  Not while memes are paused.
+- **Privacy clarity** — the menu bar icon shows the camera state (off / on / memes paused / away); while the camera
+  runs, *Stop Camera* is always the first item of the menu bar window; “Video is processed on this Mac only —
+  nothing is uploaded” in the first onboarding step and the inspector's Updates section.
+- **Russian meme titles** — `memes.json` takes an optional `title_ru`, used when MemeCam runs in Russian (captions,
+  meme editor); all bundled memes have one. The extension's “MemeCam is paused” frame is in Russian when the
+  system language is Russian.
 - **Russian localization** — the whole UI (onboarding, inspector, menus, menu bar extra, accuracy test,
   updater and camera/virtual-camera errors, reaction names and instructions, camera permission prompts)
   follows the system language. Inspector › *Language* overrides it for MemeCam only (System / English /

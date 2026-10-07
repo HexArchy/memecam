@@ -1,3 +1,4 @@
+import MemeCamCore
 import SwiftUI
 
 @main
@@ -33,11 +34,32 @@ struct MemeCamApp: App {
         .windowResizability(.contentMinSize)
         .commands { AppCommands(model: model, ui: ui) }
 
-        MenuBarExtra("MemeCam", systemImage: model.memesPaused ? "pause.circle" : "face.smiling") {
+        MenuBarExtra("MemeCam", systemImage: model.presence.menuBarSymbol) {
             MenuBarContent()
                 .environment(model)
                 .environment(ui)
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+extension CameraPresence {
+    /// Menu bar icon: is the camera on, and what goes out.
+    var menuBarSymbol: String {
+        switch self {
+        case .off: "video.slash"
+        case .live: "face.smiling.inverse"
+        case .paused: "pause.circle"
+        case .away: "moon.zzz"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .off: String(localized: "Camera off")
+        case .live: String(localized: "Camera on")
+        case .paused: String(localized: "Memes Paused")
+        case .away: String(localized: "Away \u{2014} \u{201C}Be right back\u{201D} is showing")
+        }
     }
 }

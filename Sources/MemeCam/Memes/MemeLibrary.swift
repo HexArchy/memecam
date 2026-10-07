@@ -113,7 +113,23 @@ final class MemeLibrary: @unchecked Sendable {
         let category: String
         let animal: Animal
         let title: String?
+        /// Optional Russian title (bundled memes), used when MemeCam runs in Russian.
+        var titleRU: String?
+
+        enum CodingKeys: String, CodingKey {
+            case file, category, animal, title
+            case titleRU = "title_ru"
+        }
+
+        /// The title in the UI language, falling back to `title`, then the reaction's name.
+        func displayTitle(_ reaction: Reaction) -> String {
+            if MemeLibrary.prefersRussian, let ru = titleRU, !ru.isEmpty { return ru }
+            return title ?? reaction.title
+        }
     }
+
+    /// The UI runs in Russian (system language or MemeCam's own language override).
+    static let prefersRussian = Bundle.main.preferredLocalizations.first?.hasPrefix("ru") ?? false
     private struct Manifest: Decodable { let memes: [Entry] }
     private struct UserManifest: Codable {
         var added: [Entry] = []
@@ -146,7 +162,7 @@ final class MemeLibrary: @unchecked Sendable {
                 guard let r = Reaction(rawValue: e.category) else { return nil }
                 let url = dir.appending(path: e.file)
                 guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-                return Meme(id: e.file, url: url, reaction: r, animal: e.animal, title: e.title ?? r.title)
+                return Meme(id: e.file, url: url, reaction: r, animal: e.animal, title: e.displayTitle(r))
             }
         }
         if let data = try? Data(contentsOf: userDirectory.appending(path: "user.json")),
@@ -242,7 +258,7 @@ final class MemeLibrary: @unchecked Sendable {
             let custom: [Meme] = user.added.compactMap { e in
                 guard let r = Reaction(rawValue: e.category), let url = userFileURL(e.file) else { return nil }
                 return Meme(id: "user/\(e.file)", url: url, reaction: r,
-                            animal: e.animal, title: e.title ?? r.title)
+                            animal: e.animal, title: e.displayTitle(r))
             }
             // User memes first: they are what people expect to see.
             all = custom + bundled.filter { !hidden.contains($0.id) }

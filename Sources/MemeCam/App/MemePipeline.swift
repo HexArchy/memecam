@@ -25,6 +25,8 @@ struct PipelineSettings: Sendable, Equatable {
     var cooldown: Double = 4
     /// How memes appear in quiet mode (already `.fade` when the system asks to reduce motion).
     var popStyle: PopStyle = .pop
+    /// Seconds of "nobody here" before the "Be right back" card; nil = off.
+    var awayAfter: TimeInterval? = AwayDelay.default.seconds
 }
 
 /// What the UI needs to know, published at most ~10×/s.
@@ -51,6 +53,8 @@ struct PipelineStatus: Sendable {
     var visionHz = PowerMode.normalHz
     /// Why the pipeline runs below normal speed (idle, Low Power Mode, hot Mac), nil at full speed.
     var powerNote: String?
+    /// The person left: the output shows the "Be right back" card.
+    var away = false
 }
 
 /// camera → (Vision on its own queue) → classifier → meme → compositor → sinks.
@@ -94,8 +98,12 @@ final class MemePipeline: Sendable {
         var calibrateNext = false
         var guided: GuidedSession?
         var inferenceMs = 0.0
-        /// Caps Vision at `PowerMode.visionHz` (0 while idle).
+        /// Caps Vision at `PowerMode.visionHz` (0 while idle), lower while away.
         var visionGate = RateGate(hz: PowerMode.normalHz)
+        var powerHz = PowerMode.normalHz
+        /// "Be right back" after a while of "nobody here"; `awayChanged` starts its pop animation.
+        var away = AwayTracker()
+        var awayChanged: TimeInterval = -.infinity
         /// Rolling inference stats for the periodic log line.
         var visionRuns = 0
         var visionMsSum = 0.0
@@ -192,6 +200,12 @@ final class MemePipeline: Sendable {
     /// queue; the caller just awaits. On failure the previous camera (if any) keeps running.
     func start(deviceID: String?) async throws -> CameraDevice {
         let device = try await camera.start(deviceID: deviceID)
+        state.withLock { s in
+            // A fresh start never begins on the "Be right back" card.
+            s.away.reset()
+            s.awayChanged = -.infinity
+            Self.applyVisionRate(&s)
+        }
         feed.withLock { f in
             f.sessionProblem = nil
             f.darkFeed = false
@@ -223,7 +237,21 @@ final class MemePipeline: Sendable {
             f.power = mode
             f.windowVisible = windowVisible
         }
-        state.withLock { $0.visionGate.hz = mode.visionHz }
+        state.withLock { s in
+            s.powerHz = mode.visionHz
+            Self.applyVisionRate(&s)
+        }
+    }
+
+    private static func applyVisionRate(_ s: inout State) {
+        s.visionGate.hz = s.away.visionHz(power: s.powerHz)
+    }
+
+    /// Leaves away mode right away (camera restarted, paused, setting changed).
+    private static func clearAway(now: TimeInterval, in s: inout State) {
+        guard s.away.reset() else { return }
+        s.awayChanged = now
+        applyVisionRate(&s)
     }
 
     private func cameraIssue(_ f: Feed, now: TimeInterval) -> String? {
@@ -257,6 +285,12 @@ final class MemePipeline: Sendable {
             s.stabilizer.minHold = 1.5 * settings.calmness
             if animalsChanged || resumed { s.meme = nil } // re-pick on next frame
             if settings.paused { Self.setVisible(false, now: CACurrentMediaTime(), in: &s) }
+            // Paused means a plain camera: no away card either.
+            let delay = settings.paused ? nil : settings.awayAfter
+            if s.away.delay != delay {
+                if delay == nil { Self.clearAway(now: CACurrentMediaTime(), in: &s) }
+                s.away.delay = delay
+            }
         }
     }
 
@@ -324,9 +358,13 @@ final class MemePipeline: Sendable {
             if s.visible { s.gate.noteOnScreen(s.reaction, at: now) } // cooldown starts when it leaves
             let t = now - s.memeStart
             let transition = min(1, t / 0.18)
+            // "Be right back" pops in like a sticker (fades with Reduce motion).
+            let awayStyle: PopStyle = s.settings.popStyle == .fade ? .fade : .pop
+            let awayPhase = min(1, (now - s.awayChanged) / PopAnimation.duration(awayStyle, appearing: s.away.isAway))
+            let awayPresence = s.away.isAway ? awayPhase : 1 - awayPhase
             return CompositorInput(
                 camera: cameraImage,
-                meme: presence > 0 ? s.memeImage?.frame(at: t) : nil,
+                meme: presence > 0 && awayPresence < 1 ? s.memeImage?.frame(at: t) : nil,
                 previousMeme: transition < 1 ? s.previousFrame : nil,
                 transition: transition,
                 caption: s.guided == nil && s.settings.showCaption && !s.settings.paused ? s.meme?.title : nil,
@@ -335,7 +373,10 @@ final class MemePipeline: Sendable {
                 presence: presence,
                 appearing: s.visible,
                 popStyle: style,
-                quietMode: s.settings.quietMode)
+                quietMode: s.settings.quietMode,
+                awayPresence: awayPresence,
+                awayAppearing: s.away.isAway,
+                awayStyle: awayStyle)
         }
         guard let out = compositor.render(input) else { return }
         let time = CMSampleBufferGetPresentationTimeStamp(sample)
@@ -390,6 +431,13 @@ final class MemePipeline: Sendable {
                 }
                 let est = s.classifier.classify(obs)
                 s.metrics = est.metrics
+                if s.guided == nil,
+                   s.away.update(nobodyHere: s.reaction == .noFace, faceDetected: obs.face != nil, at: now) {
+                    s.awayChanged = now
+                    Self.applyVisionRate(&s)
+                    let away = s.away.isAway
+                    log.info("away \(away ? "on" : "off", privacy: .public)")
+                }
                 guard now >= s.forcedUntil else { return }
                 if let changed = s.stabilizer.update(est.reaction, confidence: est.confidence, at: now) {
                     setReaction(changed, confidence: est.confidence, now: now, in: &s)
@@ -485,6 +533,7 @@ final class MemePipeline: Sendable {
             st.calibrationProgress = s.calibrateNext ? 0 : s.classifier.calibrationProgress
             st.calibration = s.classifier.calibration
             st.faceVisible = s.metrics != nil
+            st.away = s.away.isAway
             return st
         }
         status.guided = state.withLock { $0.guided?.tick(now) }

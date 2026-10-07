@@ -5,6 +5,7 @@
       "category": "neutral",
       "animal": "cat",
       "title": "Staring Cat",
+      "title_ru": "Кот смотрит с осуждением",
       "source": "https://media.tenor.com/2PP4ln_-L4IAAAAC/cat-side-eye-side-eye.gif"
     },
     {
@@ -12,6 +13,7 @@
       "category": "neutral",
       "animal": "hamster",
       "title": "Standing Hamster Stare",
+      "title_ru": "Хомяк в ступоре",
       "source": "https://media.tenor.com/0XH5lqLQFOkAAAAC/hamster-stare.gif"
     },
     {
@@ -19,6 +21,7 @@
       "category": "smile",
       "animal": "cat",
       "title": "Hey Smiling Cat",
+      "title_ru": "Кот-улыбака",
       "source": "https://media.tenor.com/298Aly2LzQwAAAAC/smiling-cat-happy-cat.gif"
     },
     {
@@ -26,6 +29,7 @@
       "category": "surprised",
       "animal": "cat",
       "title": "Shocked Cat",
+      "title_ru": "Кот в шоке",
       "source": "https://media.tenor.com/aLoZNO7gRQoAAAAC/shocked-cat-shocked.gif"
     },
     {
@@ -33,6 +37,7 @@
       "category": "surprised",
       "animal": "hamster",
       "title": "Screaming Drawn Hamster",
+      "title_ru": "Хомяк орёт",
       "source": "https://media.tenor.com/-3e6vwkd4C4AAAAC/omg-hamster.gif"
     },
     {
@@ -40,6 +45,7 @@
       "category": "surprised",
       "animal": "hamster",
       "title": "Shocked Hamster 2",
+      "title_ru": "Хомяк в шоке",
       "source": "https://media.tenor.com/RMUdOw3-hVkAAAAC/surprised-hampter.gif"
     },
     {
@@ -47,6 +53,7 @@
       "category": "eyesClosed",
       "animal": "cat",
       "title": "Sleeping Cat",
+      "title_ru": "Кот спит",
       "source": "https://media.tenor.com/5c9RaitzJmAAAAAC/cat-sleeping.gif"
     },
     {
@@ -54,6 +61,7 @@
       "category": "eyesClosed",
       "animal": "hamster",
       "title": "Sleeping Hamster",
+      "title_ru": "Хомяк дрыхнет",
       "source": "https://media.tenor.com/6VanE7PmYF4AAAAC/hamster-sleep.gif"
     },
     {
@@ -61,6 +69,7 @@
       "category": "eyebrowsRaised",
       "animal": "cat",
       "title": "Eyebrow Raise Cat",
+      "title_ru": "Кот приподнял бровь",
       "source": "https://media.tenor.com/ZROXroj72fYAAAAC/tloc.gif"
     },
     {
@@ -68,6 +77,7 @@
       "category": "eyebrowsRaised",
       "animal": "cat",
       "title": "Huh Cat",
+      "title_ru": "Кот: «Чего?»",
       "source": "https://media.tenor.com/wUv4TBeeuZoAAAAC/cat-huh.gif"
     },
     {
@@ -75,6 +85,7 @@
       "category": "sad",
       "animal": "cat",
       "title": "Crying Cat",
+      "title_ru": "Кот плачет",
       "source": "https://media.tenor.com/d9PoZm99CTgAAAAC/sadcat-crying-cat.gif"
     },
     {
@@ -82,6 +93,7 @@
       "category": "sad",
       "animal": "hamster",
       "title": "Sad Crying Hamster",
+      "title_ru": "Хомяк грустит",
       "source": "https://media.tenor.com/GIQybzxRoNIAAAAC/very-sad-hampter-huhu.gif"
     },
     {
@@ -89,6 +101,7 @@
       "category": "headTilt",
       "animal": "cat",
       "title": "Confused Cat in Box",
+      "title_ru": "Кот в коробке не понял",
       "source": "https://media.tenor.com/uf9h8ueOHrYAAAAC/cat-tilt-head.gif"
     },
     {
@@ -96,6 +109,7 @@
       "category": "thumbsUp",
       "animal": "cat",
       "title": "Thumbs Up Cat",
+      "title_ru": "Кот одобряет",
       "source": "https://media.tenor.com/T8p0k0A5TNoAAAAC/sigma.gif"
     },
     {
@@ -103,6 +117,7 @@
       "category": "thumbsUp",
       "animal": "cat",
       "title": "Superb Idea Cat",
+      "title_ru": "Кот: «Гениально!»",
       "source": "https://media.tenor.com/_Yx4jX4IqTQAAAAC/superb-idea-superb.gif"
     },
     {
@@ -110,6 +125,7 @@
       "category": "thumbsUp",
       "animal": "hamster",
       "title": "Thumbs Up Hamster",
+      "title_ru": "Хомяк одобряет",
       "source": "https://media.tenor.com/lD2hu2osnjAAAAAC/hamster-thumbs-up-hamster-happy.gif"
     },
     {
@@ -117,6 +133,7 @@
       "category": "peace",
       "animal": "cat",
       "title": "Peace Out Cat",
+      "title_ru": "Кот: «Всем мир»",
       "source": "https://media.tenor.com/8lZSAjKECPwAAAAC/see-you-peace-out-cat.gif"
     },
     {
@@ -124,6 +141,7 @@
       "category": "peace",
       "animal": "hamster",
       "title": "Peace Sign Hamster",
+      "title_ru": "Хомяк за мир",
       "source": "https://media.tenor.com/n-r6BGrGxBEAAAAC/juanjo-juanjo-bona.gif"
     },
     {
@@ -131,6 +149,7 @@
       "category": "openPalm",
       "animal": "cat",
       "title": "Stop Paw Kitten",
+      "title_ru": "Котёнок: «Стоп!»",
       "source": "https://media.tenor.com/d8KlRn-G_VIAAAAC/kitty-stop.gif"
     },
     {
@@ -138,6 +157,7 @@
       "category": "openPalm",
       "animal": "cat",
       "title": "Talk To The Paw Cat",
+      "title_ru": "Кот: «Говори с лапой»",
       "source": "https://media.tenor.com/omFEJs-LFmcAAAAC/no-talk-to-the-hand.gif"
     },
     {
@@ -145,6 +165,7 @@
       "category": "openPalm",
       "animal": "hamster",
       "title": "Hamster Waving Hi",
+      "title_ru": "Хомяк машет",
       "source": "https://media.tenor.com/AJ8hgCTJX6UAAAAC/hamster-hello.gif"
     },
     {
@@ -152,6 +173,7 @@
       "category": "pointing",
       "animal": "cat",
       "title": "Pointing Awesome Friend Cat",
+      "title_ru": "Кот: «Ты лучший!»",
       "source": "https://media.tenor.com/1mBfnDaelJ4AAAAC/ponty.gif"
     },
     {
@@ -159,6 +181,7 @@
       "category": "fist",
       "animal": "cat",
       "title": "Boxing Cat",
+      "title_ru": "Кот-боксёр",
       "source": "https://media.tenor.com/Bgva7WOotNcAAAAC/catboxing.gif"
     },
     {
@@ -166,6 +189,7 @@
       "category": "fist",
       "animal": "cat",
       "title": "Fighting Stance Cat",
+      "title_ru": "Кот в боевой стойке",
       "source": "https://media.tenor.com/uzCw1a_IdXgAAAAC/cat-ai.gif"
     },
     {
@@ -173,6 +197,7 @@
       "category": "fist",
       "animal": "cat",
       "title": "Street Boxing Cat",
+      "title_ru": "Уличный кот-боец",
       "source": "https://media.tenor.com/8G4zl9zH8nAAAAAC/cat-punch-cat.gif"
     },
     {
@@ -180,6 +205,7 @@
       "category": "handsUp",
       "animal": "cat",
       "title": "Screaming Cat",
+      "title_ru": "Кот орёт",
       "source": "https://media.tenor.com/W8lPAPMQnU8AAAAC/cat-scared.gif"
     },
     {
@@ -187,6 +213,7 @@
       "category": "thinking",
       "animal": "cat",
       "title": "Thinking Cat Chin Paw",
+      "title_ru": "Кот-мыслитель",
       "source": "https://media.tenor.com/Cp1FVmqVTN8AAAAC/yokomizo-seishi-yokomizo.gif"
     },
     {
@@ -194,6 +221,7 @@
       "category": "thinking",
       "animal": "cat",
       "title": "Thinking Cat Paw",
+      "title_ru": "Кот задумался",
       "source": "https://media.tenor.com/IHkcQwK9lRAAAAAC/hmmmmmmm-hmmmmmm.gif"
     },
     {
@@ -201,6 +229,7 @@
       "category": "heart",
       "animal": "cat",
       "title": "Heart Paws Cat",
+      "title_ru": "Кот с сердечком",
       "source": "https://media.tenor.com/5yh3QvAIQosAAAAC/cat-heart.gif"
     },
     {
@@ -208,6 +237,7 @@
       "category": "heart",
       "animal": "hamster",
       "title": "Love Hamster",
+      "title_ru": "Влюблённый хомяк",
       "source": "https://media.tenor.com/KeUWyYzToxgAAAAC/hamster-cute.gif"
     },
     {
@@ -215,6 +245,7 @@
       "category": "heart",
       "animal": "hamster",
       "title": "Heart Hamster",
+      "title_ru": "Хомяк с сердечком",
       "source": "https://media.tenor.com/L3bZbjM5pScAAAAC/love-miss-you.gif"
     },
     {
@@ -222,6 +253,7 @@
       "category": "noFace",
       "animal": "hamster",
       "title": "We Getting Anywhere Hamster",
+      "title_ru": "Хомяк: «Ну что, едем?»",
       "source": "https://media.tenor.com/-GcdqZ34CWEAAAAC/hamster-run.gif"
     },
     {
@@ -229,6 +261,7 @@
       "category": "noFace",
       "animal": "cat",
       "title": "Cat Waiting By Clock",
+      "title_ru": "Кот ждёт у часов",
       "source": "https://media.tenor.com/C_mgpf-76XgAAAAC/i-miss-you-hooman.gif"
     },
     {
@@ -236,6 +269,7 @@
       "category": "noFace",
       "animal": "hamster",
       "title": "Hamster Facing Wall",
+      "title_ru": "Хомяк смотрит в стену",
       "source": "https://media.tenor.com/bGZIsvoCuRsAAAAC/shock-hamster-hamster.gif"
     },
     {
@@ -243,6 +277,7 @@
       "category": "laugh",
       "animal": "cat",
       "title": "Laughing Cat",
+      "title_ru": "Кот ржёт",
       "source": "https://media.tenor.com/aGdYBX9_DTgAAAAC/cat-laugh-cat-laughing.gif"
     },
     {
@@ -250,6 +285,7 @@
       "category": "thumbsDown",
       "animal": "cat",
       "title": "Thumbs Down Cat",
+      "title_ru": "Кот против",
       "source": "https://media.tenor.com/RNXe07BdR2wAAAAC/cat-thumbs-down-thumbs-down.gif"
     },
     {
@@ -257,6 +293,7 @@
       "category": "thumbsDown",
       "animal": "hamster",
       "title": "Thumbs Down Drawn Hamster",
+      "title_ru": "Хомяк не одобряет",
       "source": "https://media.tenor.com/Kf3g0C5ft4wAAAAC/angry-thumbs-down.gif"
     },
     {
@@ -264,6 +301,7 @@
       "category": "facepalm",
       "animal": "cat",
       "title": "Cat Facepalm",
+      "title_ru": "Кот-фейспалм",
       "source": "https://media.tenor.com/NYGLuNBrXCQAAAAC/facepalm-cat.gif"
     },
     {
@@ -271,6 +309,7 @@
       "category": "facepalm",
       "animal": "cat",
       "title": "Classic Facepalm Cat",
+      "title_ru": "Классический фейспалм",
       "source": "https://media.tenor.com/mCKRFbSygEgAAAAC/cat-facepalm.gif"
     },
     {
@@ -278,6 +317,7 @@
       "category": "facepalm",
       "animal": "cat",
       "title": "Cat Hides Face",
+      "title_ru": "Кот прячет морду",
       "source": "https://media.tenor.com/6WW_YGd1vBQAAAAC/cat-hide-face.gif"
     },
     {
@@ -285,6 +325,7 @@
       "category": "facepalm",
       "animal": "hamster",
       "title": "It's So Over Hamster",
+      "title_ru": "Хомяк: «Это конец»",
       "source": "https://media.tenor.com/efb3SYgsYjoAAAAC/animals-with-captions-its-so-over.gif"
     }
   ]

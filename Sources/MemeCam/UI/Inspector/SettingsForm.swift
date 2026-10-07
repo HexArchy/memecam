@@ -73,6 +73,14 @@ struct SettingsForm: View {
                     }
                 }
                 .help("The same reaction can't pop up again for this long after its meme went away.")
+                LabeledContent("Away after") {
+                    Picker("Away after", selection: $model.awayDelay) {
+                        ForEach(AwayDelay.allCases) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                .help("After this long with nobody in front of the camera, the call sees a blurred camera with \u{201C}Be right back\u{201D} until you return.")
                 Toggle("Mirror camera", isOn: $model.mirror)
                 Toggle("Show reaction caption", isOn: $model.showCaption)
             } header: {
@@ -189,6 +197,7 @@ private struct UpdatesSection: View {
     var body: some View {
         @Bindable var updater = model.updater
         Section {
+            PrivacyNote()
             Toggle("Check for updates automatically", isOn: $updater.automaticChecks)
             LabeledContent("Version \(updater.currentVersion)") {
                 Button("Check Now") { Task { await updater.check(userInitiated: true) } }

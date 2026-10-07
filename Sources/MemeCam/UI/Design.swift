@@ -1,3 +1,4 @@
+import MemeCamCore
 import SwiftUI
 
 /// Shared look & feel constants so every screen feels uniform.
@@ -28,5 +29,26 @@ struct WindowBackdrop: View {
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)
+    }
+}
+
+/// "Video is processed on this Mac only — nothing is uploaded" (onboarding, inspector).
+struct PrivacyNote: View {
+    var body: some View {
+        Label("Video is processed on this Mac only \u{2014} nothing is uploaded", systemImage: "lock.shield")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+extension AwayDelay {
+    var title: String {
+        switch self {
+        case .off: String(localized: "Off")
+        case .tenSeconds: String(localized: "10 s")
+        case .thirtySeconds: String(localized: "30 s")
+        case .oneMinute: String(localized: "1 min")
+        }
     }
 }

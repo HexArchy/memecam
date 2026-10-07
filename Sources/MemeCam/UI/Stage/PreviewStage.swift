@@ -30,7 +30,7 @@ struct PreviewStage: View {
         .overlay(alignment: .topLeading) {
             if running, issue == nil, model.status.guided == nil {
                 ReactionChip(reaction: model.status.reaction, confidence: model.status.confidence,
-                             paused: model.memesPaused)
+                             paused: model.memesPaused, away: model.isAway)
                     .padding(14)
                     .transition(.opacity.combined(with: .scale(0.95, anchor: .topLeading)))
             }

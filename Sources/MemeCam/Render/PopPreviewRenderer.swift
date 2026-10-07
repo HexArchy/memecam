@@ -52,6 +52,16 @@ enum PopPreviewRenderer {
                 write(sheet, to: dir.appending(path: "sheet-\(layout.rawValue)-\(style.rawValue).png"), context)
             }
         }
+        // "Be right back" card over a side-by-side meme: appearing at 0.15 / 0.4 / 1.0, half-way out.
+        for (presence, appearing) in [(0.15, true), (0.4, true), (1.0, true), (0.5, false)] {
+            let input = CompositorInput(camera: camera, meme: meme, layout: .sideBySide, mirror: false,
+                                        presence: 1, popStyle: .pop, quietMode: true,
+                                        awayPresence: presence, awayAppearing: appearing, awayStyle: .pop)
+            if let px = compositor.render(input) {
+                let name = "away-\(appearing ? "in" : "out")\(Int(presence * 100)).png"
+                write(CIImage(cvPixelBuffer: px), to: dir.appending(path: name), context)
+            }
+        }
         print("wrote frames to \(dir.path)")
     }
 

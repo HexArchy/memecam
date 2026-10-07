@@ -7,6 +7,8 @@ struct ReactionChip: View {
     let reaction: Reaction
     let confidence: Double
     var paused = false
+    /// The output shows "Be right back".
+    var away = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -33,6 +35,9 @@ struct ReactionChip: View {
             if paused {
                 PausedBadge()
                     .transition(.opacity.combined(with: .scale(0.8)))
+            } else if away {
+                AwayBadge()
+                    .transition(.opacity.combined(with: .scale(0.8)))
             }
         }
         .padding(.leading, 7)
@@ -41,6 +46,7 @@ struct ReactionChip: View {
         .glassSurface(in: .capsule)
         .animation(reduceMotion ? nil : .snappy, value: reaction)
         .animation(reduceMotion ? nil : .snappy, value: paused)
+        .animation(reduceMotion ? nil : .snappy, value: away)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(paused ? "Memes paused. Current reaction: \(reaction.title)"
                                    : "Current reaction: \(reaction.title)")
@@ -57,6 +63,18 @@ private struct PausedBadge: View {
             .padding(.vertical, 5)
             .background(.orange, in: .capsule)
             .help("Memes are paused — the camera goes out plain. \u{2303}\u{2325}P resumes.")
+    }
+}
+
+private struct AwayBadge: View {
+    var body: some View {
+        Label("Away", systemImage: "moon.zzz.fill")
+            .font(.callout.bold())
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.indigo, in: .capsule)
+            .help("Nobody in front of the camera, so the call sees \u{201C}Be right back\u{201D}. Come back to resume.")
     }
 }
 
