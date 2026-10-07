@@ -64,16 +64,20 @@ public struct Evaluator: Sendable {
     public var classifierConfig: ReactionClassifier.Config
     public var calmness: Double
     public var handModel: HandGestureModel?
+    /// Score with what the user taught (nil = built-in rules only).
+    public var personal: PersonalModel?
 
     public init(classifierConfig: ReactionClassifier.Config = .init(), calmness: Double = 1,
-                handModel: HandGestureModel? = nil) {
+                handModel: HandGestureModel? = nil, personal: PersonalModel? = nil) {
         self.classifierConfig = classifierConfig
         self.calmness = calmness
         self.handModel = handModel
+        self.personal = personal
     }
 
     public func evaluate(_ recording: Recording) -> Report {
         var classifier = ReactionClassifier(config: classifierConfig, handModel: handModel)
+        classifier.personal = personal
         var stabilizer = ReactionStabilizer(minHold: 1.5 * calmness, delayScale: calmness)
 
         var tp: [Reaction: Int] = [:], fp: [Reaction: Int] = [:], fn: [Reaction: Int] = [:]

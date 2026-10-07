@@ -48,6 +48,12 @@ public struct ReactionClassifier: Sendable {
     public var config: Config
     /// Learned hand-shape classifier; rules are used when nil.
     public var handModel: HandGestureModel?
+    /// What the user taught ("Teach MemeCam"): overrides the rules for its enabled reactions when sure.
+    public var personal: PersonalModel?
+    /// Keep `lastFeatures` up to date even without a personal model (teaching replays).
+    public var recordsFeatures = false
+    /// The last frame's `ReactionFeatures` (when `personal` or `recordsFeatures` is set).
+    public private(set) var lastFeatures: [Float]?
     public private(set) var baseline: FaceMetrics = .typicalNeutral
     public private(set) var calibration: Calibration = .none
     public var isCalibrated: Bool { calibration != .none }
@@ -109,11 +115,17 @@ public struct ReactionClassifier: Sendable {
             lastHands = hands
             lastHandsTime = frame.timestamp
         }
-        if config.enableGestures, let g = classifyGestures(hands, faceBox: faceBox) {
-            return ReactionEstimate(reaction: g.0, confidence: g.1, metrics: metrics)
+        let seen = config.enableGestures ? seenHands(hands, faceBox: faceBox) : []
+        let wantsFeatures = personal != nil || recordsFeatures
+        lastFeatures = nil
+
+        if config.enableGestures, let g = classifyGestures(seen, faceBox: faceBox) {
+            let rules = ReactionEstimate(reaction: g.0, confidence: g.1, metrics: metrics)
+            return wantsFeatures ? personalized(rules, metrics: metrics, faceBox: faceBox, seen: seen) : rules
         }
         guard let face = frame.face, let metrics, let raw else {
-            return ReactionEstimate(reaction: hands.isEmpty ? .noFace : .neutral, confidence: 1)
+            let rules = ReactionEstimate(reaction: hands.isEmpty ? .noFace : .neutral, confidence: 1)
+            return wantsFeatures ? personalized(rules, metrics: nil, faceBox: faceBox, seen: seen) : rules
         }
         guard config.enableExpressions else {
             return ReactionEstimate(reaction: .neutral, confidence: 1, metrics: metrics)
@@ -124,13 +136,18 @@ public struct ReactionClassifier: Sendable {
             collectCalibrationSample(raw)
         }
         if headTurned {
-            // Turned away: profile landmarks distort mouth/eye ratios. Abstain.
-            return ReactionEstimate(reaction: lastExpression, confidence: 0, metrics: metrics)
+            // Turned away: profile landmarks distort mouth/eye ratios. Abstain (a taught hand pose may
+            // still decide).
+            let rules = ReactionEstimate(reaction: lastExpression, confidence: 0, metrics: metrics)
+            return wantsFeatures && !seen.isEmpty ? personalized(rules, metrics: metrics, faceBox: faceBox, seen: seen)
+                                                  : rules
         }
 
         let browsReliable = abs(face.yaw) <= config.maxHeadTurnForBrows && abs(face.pitch) <= config.maxHeadTurnForBrows
-        let estimate = classifyExpression(metrics, browsReliable: browsReliable)
-        lastExpression = estimate.reaction
+        let rules = classifyExpression(metrics, browsReliable: browsReliable)
+        let estimate = wantsFeatures ? personalized(rules, metrics: metrics, faceBox: faceBox, seen: seen) : rules
+        // Hysteresis follows what is shown; a taught gesture doesn't count as the shown expression.
+        lastExpression = estimate.reaction.isGesture ? rules.reaction : estimate.reaction
         if estimate.reaction == .neutral, hands.isEmpty, !collecting {
             // Track slow drift (lighting, posture) without chasing expressions.
             let roll = baseline.rollDegrees
@@ -138,6 +155,17 @@ public struct ReactionClassifier: Sendable {
             baseline.rollDegrees = roll
         }
         return estimate
+    }
+
+    /// The personal model's answer when it is sure and the reaction is enabled for it, else `rules`.
+    private mutating func personalized(_ rules: ReactionEstimate, metrics: FaceMetrics?, faceBox: CGRect?,
+                                       seen: [SeenHand]) -> ReactionEstimate {
+        guard rules.reaction != .noFace,
+              let x = ReactionFeatures.make(metrics: metrics, baseline: baseline, faceBox: faceBox, hands: seen)
+        else { return rules }
+        lastFeatures = x
+        guard let personal, let p = personal.predict(x), personal.enabled.contains(p.reaction) else { return rules }
+        return ReactionEstimate(reaction: p.reaction, confidence: Double(p.votes) / Double(personal.k), metrics: metrics)
     }
 
     private mutating func collectCalibrationSample(_ m: FaceMetrics) {
@@ -158,38 +186,23 @@ public struct ReactionClassifier: Sendable {
 
     // MARK: - Gestures
 
-    /// A hand plus everything we know about its shape.
-    private struct SeenHand {
-        let pose: HandPose
-        let shape: HandShape
-        let model: HandGestureModel.Prediction?
-
-        /// Confident model label (p ≥ 0.8), if any.
-        var label: HandGestureModel.Label? { model.flatMap { $0.probability >= 0.8 ? $0.label : nil } }
-        var isOpen: Bool { label.map { $0 == .openPalm } ?? (shape.extendedCount >= 4) }
-        var isHeartHalf: Bool { model != nil ? label == .heartHalf : shape.looksLikeHalfHeart }
-
-        /// Single-hand gesture: the learned model decides when it is confident (p ≥ 0.8);
-        /// otherwise the geometric rules decide, exactly as without a model.
-        var gesture: HandGesture? {
-            if let model, model.probability >= 0.8 { return model.label.gesture }
-            return shape.gesture(for: pose)
-        }
-    }
-
-    private func classifyGestures(_ hands: [HandPose], faceBox: CGRect?) -> (Reaction, Double)? {
+    private func seenHands(_ hands: [HandPose], faceBox: CGRect?) -> [SeenHand] {
         // Ignore tiny "hands" (background clutter, far-away people) and low-confidence ones.
         // Recorded: hands angled toward the lens project palms as short as 0.07 face heights
         // (chin rest). Confidence and joint-count filters already reject clutter.
         let minPalm = faceBox.map { Double($0.height) * 0.05 } ?? 0.03
-        let seen = hands.filter { $0.confidence >= 0.5 }.compactMap { raw -> SeenHand? in
+        return hands.filter { $0.confidence >= 0.5 }.compactMap { raw -> SeenHand? in
             let h = raw.withEstimatedWrist()
             guard let shape = HandShape(h), shape.palmSize >= minPalm else { return nil }
             // The model was trained on real wrists; with a guessed wrist its features are off and
             // it answers confidently wrong (recorded on peace signs), so leave those to the rules.
             let wristSeen = raw[.wrist] != nil
-            return SeenHand(pose: h, shape: shape, model: wristSeen ? handModel?.predict(h) : nil)
+            return SeenHand(pose: h, shape: shape, model: wristSeen ? handModel?.predict(h) : nil,
+                            labels: handModel?.labels ?? [])
         }
+    }
+
+    private func classifyGestures(_ seen: [SeenHand], faceBox: CGRect?) -> (Reaction, Double)? {
         guard !seen.isEmpty else { return nil }
 
         if seen.count >= 2 {

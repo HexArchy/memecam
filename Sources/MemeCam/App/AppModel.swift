@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 @preconcurrency import AVFoundation
 import MemeCamCore
 import Observation
@@ -112,6 +113,8 @@ final class AppModel {
     func hiddenDefaultsCount(for r: Reaction) -> Int { _ = libraryRevision; return pipeline.library.hiddenCount(for: r) }
     /// Report of the last guided accuracy test (multi-line text).
     private(set) var lastEvaluation: String?
+    /// The same report, structured (which reactions to teach).
+    private(set) var lastEvaluationReport: Evaluator.Report?
     private(set) var lastRecordingURL: URL?
     /// The test just finished: the stage shows the result card until dismissed.
     var showEvaluationResult = false
@@ -124,6 +127,131 @@ final class AppModel {
         lastEvaluation = nil
         pipeline.startGuidedSession()
     }
+
+    // MARK: Teaching (personal model)
+
+    enum TeachingPhase: Equatable { case idle, training }
+    private(set) var teachingPhase: TeachingPhase = .idle
+    /// Result of the last teaching (also when it didn't help); nil when nothing was taught.
+    private(set) var personalReport: PersonalizationReport?
+    /// Teaching just finished: the stage shows its result card until dismissed.
+    var showTeachResult = false
+    /// The model built from the user's teaching; nil until taught (or when it didn't beat the rules).
+    private(set) var personalModel: PersonalModel?
+    /// Use what MemeCam learned (on by default once taught).
+    var usePersonalModel = true {
+        didSet {
+            guard !loading, oldValue != usePersonalModel else { return }
+            defaults.set(usePersonalModel, forKey: "usePersonalModel")
+            pipeline.setPersonalModel(usePersonalModel ? personalModel : nil)
+        }
+    }
+    var isTeaching: Bool { status.guided?.teaching == true }
+
+    /// Reactions a full lesson covers: everything that can pop up (switched on, has memes, detector on).
+    var teachableReactions: [Reaction] {
+        Reaction.allCases.filter { r in
+            r != .neutral && r != .noFace && !disabledReactions.contains(r) && !memes(for: r).isEmpty
+                && (r.isGesture ? detectHands : detectExpressions)
+        }
+    }
+
+    /// Reactions the last accuracy test got wrong often (F1 < 0.8), worth teaching.
+    var reactionsToImprove: [Reaction] {
+        guard let report = lastEvaluationReport else { return [] }
+        return report.classes.filter { $0.f1 < 0.8 && $0.reaction != .neutral && $0.reaction != .noFace }.map(\.reaction)
+    }
+
+    /// "Teach MemeCam": shows each reaction twice (≈ 6.5 s per take), then builds the personal model.
+    /// `reactions` nil = a full lesson.
+    func startTeaching(_ reactions: [Reaction]? = nil) {
+        guard !isGuidedSessionRunning, teachingPhase == .idle else { return }
+        let list = reactions ?? teachableReactions
+        guard !list.isEmpty else { return }
+        if cameraState != .running { start() }
+        showEvaluationResult = false
+        showTeachResult = false
+        pipeline.startTeachSession(reactions: list)
+    }
+
+    /// Deletes the teach sessions and the model; detection goes back to the built-in rules.
+    func forgetTeaching() {
+        try? Self.personalStore.reset()
+        personalModel = nil
+        personalReport = nil
+        showTeachResult = false
+        pipeline.setPersonalModel(nil)
+    }
+
+    private func recordingFinished(_ rec: Recording, purpose: MemePipeline.GuidedPurpose) {
+        switch purpose {
+        case .teach:
+            finishTeaching(rec)
+        case .test:
+            // Scored the way detection runs now (with what was taught, if in use); off the main actor.
+            let personal = usePersonalModel ? personalModel : nil
+            Task.detached(priority: .utility) { [weak self] in
+                let url = AppModel.save(rec)
+                let report = Evaluator(handModel: AppModel.handModel, personal: personal).evaluate(rec)
+                await self?.showEvaluation(report, url: url)
+            }
+        }
+    }
+
+    private func showEvaluation(_ report: Evaluator.Report, url: URL?) {
+        lastRecordingURL = url
+        lastEvaluationReport = report
+        lastEvaluation = report.summary
+        showEvaluationResult = true
+    }
+
+    private func finishTeaching(_ rec: Recording) {
+        teachingPhase = .training
+        Task.detached(priority: .utility) { [weak self] in
+            let store = AppModel.personalStore
+            try? store.saveSession(rec)
+            let (model, report) = PersonalTrainer.build(store.sessions(), handModel: AppModel.handModel,
+                                                        handModelHash: AppModel.handModelHash)
+            try? store.save(model: model, report: report)
+            await self?.applyTeaching(model: model, report: report, show: true)
+        }
+    }
+
+    private func applyTeaching(model: PersonalModel?, report: PersonalizationReport?, show: Bool) {
+        personalModel = model
+        personalReport = report
+        teachingPhase = .idle
+        pipeline.setPersonalModel(usePersonalModel ? model : nil)
+        if show { showTeachResult = true }
+    }
+
+    /// At launch: the stored model, rebuilt from the saved sessions when the app's detector changed.
+    private func loadTeaching() {
+        Task.detached(priority: .utility) { [weak self] in
+            let store = AppModel.personalStore
+            let report = store.loadReport()
+            var model = store.loadModel(handModelHash: AppModel.handModelHash)
+            var rebuilt = report
+            if model == nil, report?.accepted == true, store.hasSessions {
+                let built = PersonalTrainer.build(store.sessions(), handModel: AppModel.handModel,
+                                                  handModelHash: AppModel.handModelHash)
+                try? store.save(model: built.model, report: built.report)
+                model = built.model
+                rebuilt = built.report
+            }
+            await self?.applyTeaching(model: model, report: rebuilt, show: false)
+        }
+    }
+
+    nonisolated static let personalStore = PersonalStore(
+        directory: URL.applicationSupportDirectory.appending(path: "MemeCam/Personal", directoryHint: .isDirectory))
+
+    /// Fingerprint of the bundled hand model (its outputs are personal-model features).
+    nonisolated static let handModelHash: String = {
+        let url = Bundle.main.resourceURL?.appending(path: "Models/hand-gesture-mlp.json")
+        guard let data = url.flatMap({ try? Data(contentsOf: $0) }) else { return "none" }
+        return SHA256.hash(data: data).prefix(8).map { String(format: "%02x", $0) }.joined()
+    }()
 
     func cancelAccuracyTest() { pipeline.cancelGuidedSession() }
     func togglePauseAccuracyTest() { pipeline.toggleGuidedPause() }
@@ -245,15 +373,10 @@ final class AppModel {
                 if status.away != self.isAway { self.isAway = status.away }
             }
         }
-        pipeline.onRecordingFinished = { [weak self] rec in
-            let url = AppModel.save(rec)
-            let report = Evaluator(handModel: AppModel.handModel).evaluate(rec).summary
-            Task { @MainActor in
-                self?.lastRecordingURL = url
-                self?.lastEvaluation = report
-                self?.showEvaluationResult = true
-            }
+        pipeline.onRecordingFinished = { [weak self] rec, purpose in
+            Task { @MainActor in self?.recordingFinished(rec, purpose: purpose) }
         }
+        loadTeaching()
         virtualCamera.sink.setConsumerHandler { [weak self] active in self?.consumerChanged(active) }
         virtualCamera.onDeviceLostAfterReplace = { [weak self] in
             guard let self, !isGuidedSessionRunning else { return }
@@ -671,5 +794,6 @@ final class AppModel {
         triggerPalette = TriggerPalette.decode(defaults.data(forKey: "triggerPalette"))
         if defaults.object(forKey: "slotHotKeysEnabled") != nil { slotHotKeysEnabled = defaults.bool(forKey: "slotHotKeysEnabled") }
         paletteVisible = defaults.bool(forKey: "paletteVisible")
+        if defaults.object(forKey: "usePersonalModel") != nil { usePersonalModel = defaults.bool(forKey: "usePersonalModel") }
     }
 }

@@ -134,8 +134,11 @@ final class MemePipeline: Sendable {
 
     private struct Callbacks {
         var onStatus: (@Sendable (PipelineStatus) -> Void)?
-        var onRecordingFinished: (@Sendable (Recording) -> Void)?
+        var onRecordingFinished: (@Sendable (Recording, GuidedPurpose) -> Void)?
     }
+
+    /// What a guided session is for: the accuracy test scores, teaching trains the personal model.
+    enum GuidedPurpose: Sendable { case test, teach }
     private let callbacks = OSAllocatedUnfairLock(initialState: Callbacks())
     /// One watchdog for the pipeline's lifetime (a 1 s timer on the capture queue): resumed by `start`,
     /// suspended by `stop`, so camera switches and restarts never stack extra loops.
@@ -147,8 +150,8 @@ final class MemePipeline: Sendable {
         get { callbacks.withLock { $0.onStatus } }
         set { callbacks.withLock { $0.onStatus = newValue } }
     }
-    /// Called (on a utility queue) when a guided accuracy session completes.
-    var onRecordingFinished: (@Sendable (Recording) -> Void)? {
+    /// Called (on a utility queue) when a guided session (accuracy test or teaching) completes.
+    var onRecordingFinished: (@Sendable (Recording, GuidedPurpose) -> Void)? {
         get { callbacks.withLock { $0.onRecordingFinished } }
         set { callbacks.withLock { $0.onRecordingFinished = newValue } }
     }
@@ -158,6 +161,17 @@ final class MemePipeline: Sendable {
     func startGuidedSession() {
         let now = CACurrentMediaTime()
         state.withLock { $0.guided = GuidedSession(start: now) }
+    }
+
+    /// "Teach MemeCam": every reaction in `reactions` twice, recorded for the personal model.
+    func startTeachSession(reactions: [Reaction]) {
+        let now = CACurrentMediaTime()
+        state.withLock { $0.guided = .teaching(start: now, reactions: reactions) }
+    }
+
+    /// What the user taught (nil = built-in rules only).
+    func setPersonalModel(_ model: PersonalModel?) {
+        state.withLock { $0.classifier.personal = model }
     }
 
     func cancelGuidedSession() { state.withLock { $0.guided = nil } }
@@ -428,9 +442,10 @@ final class MemePipeline: Sendable {
                         s.guided?.record(obs, at: now)
                     } else if let g = s.guided {
                         let rec = g.recording(camera: cameraName)
+                        let purpose: GuidedPurpose = g.teaching ? .teach : .test
                         s.guided = nil
                         let done = callbacks.withLock { $0.onRecordingFinished }
-                        DispatchQueue.global(qos: .utility).async { done?(rec) }
+                        DispatchQueue.global(qos: .utility).async { done?(rec, purpose) }
                     }
                 }
                 let est = s.classifier.classify(obs)

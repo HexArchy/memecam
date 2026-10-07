@@ -109,6 +109,7 @@ private struct OptionsCapsule: View {
             if model.cameraState == .running {
                 divider
                 calibrateButton
+                teachButton
             }
         }
         .controlSize(.large)
@@ -128,6 +129,19 @@ private struct OptionsCapsule: View {
             .buttonStyle(.borderless)
             .help("Relax your face, look at the camera, then calibrate (\u{2318}K)")
             .accessibilityLabel("Calibrate neutral face")
+    }
+
+    private var teachButton: some View {
+        Button {
+            model.startTeaching()
+        } label: {
+            Label("Teach", systemImage: model.personalModel != nil ? "graduationcap.fill" : "graduationcap")
+                .labelStyle(compact ? AnyLabelStyle(.iconOnly) : AnyLabelStyle(.titleAndIcon))
+        }
+        .buttonStyle(.borderless)
+        .disabled(model.isGuidedSessionRunning || model.teachingPhase != .idle)
+        .help("Teach MemeCam your own reactions: show each one twice, a few seconds each (\u{2318}T)")
+        .accessibilityLabel("Teach MemeCam your reactions")
     }
 
     private var divider: some View {

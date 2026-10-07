@@ -8,11 +8,53 @@ import MemeCamCore
 extension CGPoint { func distance(to p: CGPoint) -> Double { Double(hypot(x - p.x, y - p.y)) } }
 
 guard CommandLine.arguments.count > 1 else {
-    print("usage: memecam-eval <recording.json>")
+    print("usage: memecam-eval <recording.json> | memecam-eval --teach-split <recording.json>")
     exit(1)
 }
 let decoder = JSONDecoder()
 decoder.dateDecodingStrategy = .iso8601
+let handModel = (try? Data(contentsOf: URL(filePath: "Resources/Models/hand-gesture-mlp.json")))
+    .flatMap { try? HandGestureModel(json: $0) }
+
+// --teach-split: per labelled segment, teach on the first 60% and score the last 40% (rules vs personal).
+if CommandLine.arguments[1] == "--teach-split", CommandLine.arguments.count > 2 {
+    let rec = try decoder.decode(Recording.self, from: Data(contentsOf: URL(filePath: CommandLine.arguments[2])))
+    var train = rec, test = rec
+    var start = 0
+    while start < rec.frames.count {
+        var end = start
+        while end + 1 < rec.frames.count, rec.frames[end + 1].label == rec.frames[start].label { end += 1 }
+        let cut = start + (end - start + 1) * 6 / 10
+        for i in start...end {
+            if i < cut { test.frames[i].label = nil } else { train.frames[i].label = nil }
+        }
+        start = end + 1
+    }
+    let t0 = Date()
+    let (model, report) = PersonalTrainer.build([train], handModel: handModel, handModelHash: "eval")
+    print(String(format: "built in %.2f s: %@  macro %.3f → %.3f (validation inside takes, optimistic)",
+                 Date().timeIntervalSince(t0), report.outcome.rawValue, report.macroBefore, report.macroAfter))
+    for r in report.rows {
+        print(String(format: "  %@ rules %.2f personal %.2f n=%d %@ %@", r.reaction.rawValue.padding(toLength: 15, withPad: " ", startingAt: 0),
+                     r.rulesF1, r.personalF1, r.support, r.enabled ? "ON " : "off", r.confusedWith?.rawValue ?? ""))
+    }
+    print("\n== held-out 40%, rules only")
+    print(Evaluator(handModel: handModel).evaluate(test).summary)
+    // Force the model on even when not accepted, to see what it would do.
+    let forced = model ?? {
+        let ex = PersonalTrainer.examples(from: [train], handModel: handModel)
+        return PersonalTrainer.fit(PersonalTrainer.select(ex), enabled: Set(report.rows.filter(\.enabled).map(\.reaction)),
+                                   handModelHash: "eval", report: report)
+    }()
+    var tuned = forced
+    let env = ProcessInfo.processInfo.environment
+    if let v = env["K"].flatMap(Int.init) { tuned.k = v }
+    if let v = env["VOTES"].flatMap(Int.init) { tuned.minVotes = v }
+    if let v = env["RADIUS"].flatMap(Float.init) { tuned.rejectRadius *= v / 2 }
+    print("\n== held-out 40%, with personal model (\(forced.sampleCount) samples, enabled \(forced.enabled.count)) k=\(tuned.k) votes=\(tuned.minVotes)")
+    print(Evaluator(handModel: handModel, personal: tuned).evaluate(test).summary)
+    exit(0)
+}
 let rec = try decoder.decode(Recording.self, from: Data(contentsOf: URL(filePath: CommandLine.arguments[1])))
 
 func pct(_ v: [Double], _ p: Double) -> Double {

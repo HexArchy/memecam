@@ -42,6 +42,8 @@ struct SettingsForm: View {
                     .foregroundStyle(Design.secondaryText)
             }
 
+            TeachingSection()
+
             Section {
                 Toggle("Quiet mode", isOn: $model.quietMode)
                     .help("Nothing on screen while you look neutral — memes pop up on a reaction, then hide.")
@@ -187,6 +189,77 @@ private struct DebugRows: View {
 }
 
 /// Guided ~90 s test that measures how well detection works on *this* user.
+/// "Teach MemeCam your face": the user shows each reaction twice and recognition adapts to them.
+private struct TeachingSection: View {
+    @Environment(AppModel.self) private var model
+    @State private var confirmForget = false
+
+    var body: some View {
+        @Bindable var model = model
+        Section {
+            if model.isTeaching, let g = model.status.guided {
+                LabeledContent("Step") { Text("\(g.stepIndex + 1) of \(g.stepCount)").monospacedDigit() }
+                ProgressView(value: g.overallProgress)
+                Button("Stop Teaching", role: .cancel) { model.cancelAccuracyTest() }
+            } else if model.teachingPhase == .training {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Learning your reactions\u{2026}")
+                }
+            } else {
+                Button {
+                    model.startTeaching()
+                } label: {
+                    Label(model.personalReport == nil ? "Teach MemeCam Your Face\u{2026}" : "Teach Again\u{2026}",
+                          systemImage: "graduationcap")
+                }
+                .disabled(model.isGuidedSessionRunning || model.teachableReactions.isEmpty)
+                if let report = model.personalReport {
+                    statusLine(report)
+                }
+                if model.personalModel != nil {
+                    Toggle("Use what MemeCam learned", isOn: $model.usePersonalModel)
+                }
+                if model.personalReport != nil {
+                    Button("Forget What MemeCam Learned\u{2026}", role: .destructive) { confirmForget = true }
+                        .confirmationDialog("Forget what MemeCam learned about your face?", isPresented: $confirmForget) {
+                            Button("Forget", role: .destructive) { model.forgetTeaching() }
+                        } message: {
+                            Text("Recognition goes back to how it works for everyone. You can teach it again any time.")
+                        }
+                }
+            }
+        } header: {
+            Label("Your Face", systemImage: "graduationcap")
+        } footer: {
+            Text("About \(minutes) min: show each reaction twice, a bit differently each time. MemeCam then recognises you better. Only face and hand points are kept, on this Mac \u{2014} no photos or video.")
+                .font(.callout)
+                .foregroundStyle(Design.secondaryText)
+        }
+    }
+
+    /// Two passes over every reaction plus three neutral takes, 6.5 s each.
+    private var minutes: Int {
+        let steps = GuidedSession.teachPlan(model.teachableReactions).count
+        return max(1, Int((Double(steps) * 6.5 / 60).rounded()))
+    }
+
+    @ViewBuilder private func statusLine(_ report: PersonalizationReport) -> some View {
+        switch report.outcome {
+        case .accepted:
+            Label("Recognises you better: \(Int((report.macroBefore * 100).rounded()))% \u{2192} \(Int((report.macroAfter * 100).rounded()))%",
+                  systemImage: "checkmark.circle.fill")
+                .foregroundStyle(Design.secondaryText)
+        case .notBetter:
+            Label("Already recognises you well \u{2014} nothing to change", systemImage: "checkmark.circle")
+                .foregroundStyle(Design.secondaryText)
+        case .notEnoughData:
+            Label("Couldn't see you well enough last time \u{2014} try again in good light", systemImage: "exclamationmark.triangle")
+                .foregroundStyle(Design.secondaryText)
+        }
+    }
+}
+
 private struct AccuracySection: View {
     @Environment(AppModel.self) private var model
 

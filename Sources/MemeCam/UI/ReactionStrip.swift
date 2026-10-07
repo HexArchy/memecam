@@ -106,6 +106,10 @@ private struct ReactionCard: View {
             Button("Preview", systemImage: "play") { model.trigger(reaction) }
                 .disabled(!canPreview)
             Button("Edit Memes…", systemImage: "photo.on.rectangle.angled") { ui.editMemes(for: reaction) }
+            if reaction != .neutral, reaction != .noFace {
+                Button("Teach This Reaction…", systemImage: "graduationcap") { model.startTeaching([reaction]) }
+                    .disabled(model.isGuidedSessionRunning || model.teachingPhase != .idle)
+            }
             Divider()
             ReactionSwitchMenuItem(reaction: reaction)
         }

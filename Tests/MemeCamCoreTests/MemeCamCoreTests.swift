@@ -5,7 +5,7 @@ import Testing
 
 // MARK: - Synthetic fixtures (aspect space, y up)
 
-private func face(mouthOpen: CGFloat = 0.01, smileWiden: CGFloat = 0, cornerLift: CGFloat = 0,
+func face(mouthOpen: CGFloat = 0.01, smileWiden: CGFloat = 0, cornerLift: CGFloat = 0,
                   eyeHeight: CGFloat = 0.03, browY: CGFloat = 0.64, roll: CGFloat = 0) -> FaceLandmarks {
     func eye(_ cx: CGFloat) -> [CGPoint] {
         [CGPoint(x: cx - 0.05, y: 0.6), CGPoint(x: cx, y: 0.6 + eyeHeight / 2),
@@ -36,14 +36,14 @@ private func face(mouthOpen: CGFloat = 0.01, smileWiden: CGFloat = 0, cornerLift
 }
 
 /// Hand with wrist at origin offset; `up` controls which fingers point up.
-private func hand(at o: CGPoint, extended: [Bool], thumb: CGFloat? = nil, scale: CGFloat = 1.5) -> HandPose {
+func hand(at o: CGPoint, extended: [Bool], thumb: CGFloat? = nil, scale: CGFloat = 1.5) -> HandPose {
     let pose = unscaledHand(at: .zero, extended: extended, thumb: thumb)
     // Real palms are ~0.3–0.45 of face height; scale the unit-size fixture accordingly.
     return HandPose(joints: pose.joints.mapValues { CGPoint(x: o.x + $0.x * scale, y: o.y + $0.y * scale) },
                     confidence: pose.confidence)
 }
 
-private func unscaledHand(at o: CGPoint, extended: [Bool], thumb: CGFloat? = nil) -> HandPose {
+func unscaledHand(at o: CGPoint, extended: [Bool], thumb: CGFloat? = nil) -> HandPose {
     var j: [HandJoint: CGPoint] = [.wrist: o]
     let xs: [CGFloat] = [-0.03, -0.01, 0.01, 0.03]
     let names: [(HandJoint, HandJoint, HandJoint, HandJoint)] = [

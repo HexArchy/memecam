@@ -25,6 +25,17 @@ extension Reaction {
         case .noFace: String(localized: "Step out of the frame.", bundle: .main)
         }
     }
+
+    /// Extra instruction for a repeated take while teaching (nil for the first take): variety makes the
+    /// personal model robust, and the talking / reading neutral takes stop false triggers in calls.
+    public func teachHint(take: Int) -> String? {
+        switch (self, take) {
+        case (_, 0): nil
+        case (.neutral, 1): String(localized: "Talk as you would in a call \u{2014} say anything.", bundle: .main)
+        case (.neutral, _): String(localized: "Look at your screen as if reading.", bundle: .main)
+        default: String(localized: "Once more, a little differently: other hand or side, a bit stronger or softer.", bundle: .main)
+        }
+    }
 }
 
 /// Interactive accuracy test: for every reaction a *prepare* phase (instructions + countdown,
@@ -41,6 +52,10 @@ public struct GuidedSession: Sendable {
         public var stepIndex: Int
         public var stepCount: Int
         public var paused: Bool
+        /// Teaching session (not the accuracy test).
+        public var teaching = false
+        /// How many times this reaction came up before in the session (0 = first take).
+        public var take = 0
         public var overallProgress: Double { (Double(stepIndex) + (phase == .hold ? 0.5 : 0) + phaseProgress / 2) / Double(stepCount) }
     }
 
@@ -49,6 +64,7 @@ public struct GuidedSession: Sendable {
     /// First part of the hold that is not labelled (the user is still settling).
     public var settle: Double
     public let reactions: [Reaction]
+    public let teaching: Bool
 
     public private(set) var stepIndex = 0
     public private(set) var phase: Phase = .prepare
@@ -58,8 +74,9 @@ public struct GuidedSession: Sendable {
     public private(set) var finished = false
 
     public init(start: Double, reactions: [Reaction]? = nil,
-                prepare: Double = 3.5, hold: Double = 5, settle: Double = 0.6) {
+                prepare: Double = 3.5, hold: Double = 5, settle: Double = 0.6, teaching: Bool = false) {
         self.reactions = reactions ?? ([.neutral] + Reaction.allCases.filter { $0 != .neutral && $0 != .noFace } + [.noFace])
+        self.teaching = teaching
         prepareDuration = prepare
         holdDuration = hold
         self.settle = settle
@@ -67,6 +84,18 @@ public struct GuidedSession: Sendable {
     }
 
     public var isPaused: Bool { pausedAt != nil }
+
+    /// "Teach MemeCam": every reaction twice in two separate passes (validation needs takes that weren't
+    /// learned from), framed by neutral takes: calm, talking, reading. About 4 s per hold, like the
+    /// "a few seconds per class, varied" practice of example-based trainers (Teachable Machine).
+    public static func teaching(start: Double, reactions: [Reaction]) -> GuidedSession {
+        GuidedSession(start: start, reactions: teachPlan(reactions), prepare: 2.5, hold: 4, teaching: true)
+    }
+
+    public static func teachPlan(_ reactions: [Reaction]) -> [Reaction] {
+        let r = reactions.filter { $0 != .neutral && $0 != .noFace }
+        return [.neutral] + r + [.neutral] + r + [.neutral]
+    }
 
     private func duration(of phase: Phase) -> Double {
         // Longer first neutral hold: it doubles as calibration.
@@ -92,9 +121,11 @@ public struct GuidedSession: Sendable {
 
     private func snapshot(elapsed: Double) -> Snapshot {
         let d = duration(of: phase)
-        return Snapshot(reaction: reactions[stepIndex], phase: phase, phaseProgress: min(1, elapsed / d),
+        let reaction = reactions[stepIndex]
+        return Snapshot(reaction: reaction, phase: phase, phaseProgress: min(1, elapsed / d),
                         remaining: max(0, d - elapsed), stepIndex: stepIndex, stepCount: reactions.count,
-                        paused: pausedAt != nil)
+                        paused: pausedAt != nil, teaching: teaching,
+                        take: reactions[..<stepIndex].filter { $0 == reaction }.count)
     }
 
     private mutating func advanceStep() -> Bool {

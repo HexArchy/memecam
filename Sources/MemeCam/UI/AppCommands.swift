@@ -18,6 +18,12 @@ struct AppCommands: Commands {
             Button("Calibrate Neutral Face") { model.calibrate() }
                 .keyboardShortcut("k")
                 .disabled(model.cameraState != .running)
+            Button("Teach MemeCam\u{2026}") {
+                openWindow(id: "main")
+                model.startTeaching()
+            }
+            .keyboardShortcut("t")
+            .disabled(model.isGuidedSessionRunning || model.teachingPhase != .idle)
             Button(model.memesPaused ? "Resume Memes" : "Pause Memes") { model.togglePause() }
                 .keyboardShortcut("p", modifiers: [.control, .option]) // also a global hotkey
             Divider()

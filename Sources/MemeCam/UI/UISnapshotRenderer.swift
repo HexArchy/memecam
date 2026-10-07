@@ -44,6 +44,33 @@ enum UISnapshotRenderer {
                 .background(Color(nsColor: .windowBackgroundColor))
                 .environment(model))),
         ]
+        let row = { (r: Reaction, before: Double, after: Double, on: Bool, confused: Reaction?) in
+            PersonalizationReport.Row(reaction: r, rulesF1: before, personalF1: after, support: 60,
+                                      confusedWith: confused, enabled: on, optimistic: false)
+        }
+        let taught = PersonalizationReport(
+            rows: [row(.sad, 0, 0.71, true, nil), row(.thinking, 0.42, 0.95, true, nil), row(.peace, 0.3, 0.73, true, nil),
+                   row(.neutral, 0.59, 0.75, true, nil), row(.eyebrowsRaised, 0.4, 0.45, false, .surprised)],
+            macroBefore: 0.83, macroAfter: 0.94, outcome: .accepted)
+        jobs.append(("teach-result", AnyView(TeachResultCard(report: taught)
+            .frame(width: 640).padding().background(Color(nsColor: .windowBackgroundColor)).environment(model))))
+        jobs.append(("teach-result-notbetter", AnyView(TeachResultCard(report: PersonalizationReport(
+            rows: [], macroBefore: 0.9, macroAfter: 0.9, outcome: .notBetter))
+            .frame(width: 640).padding().background(Color(nsColor: .windowBackgroundColor)).environment(model))))
+        jobs.append(("settings", AnyView(SettingsForm()
+            .frame(width: 360, height: 1500).background(Color(nsColor: .windowBackgroundColor))
+            .environment(model).environment(ui))))
+        for (name, size) in [("main-fullscreen-1512", CGSize(width: 1512, height: 982)),
+                             ("main-fullscreen-1920", CGSize(width: 1920, height: 1080))] {
+            jobs.append((name, AnyView(VStack(spacing: Design.sectionSpacing) {
+                PreviewStage(); ControlBar(); ReactionStrip()
+            }
+            .padding(.horizontal, Design.stagePadding).padding(.top, 8).padding(.bottom, 18)
+            .frame(width: size.width - 340, height: size.height)
+            .background { WindowBackdrop() }
+            .background(Color(nsColor: .windowBackgroundColor))
+            .environment(model).environment(ui))))
+        }
         for phase in CalibrationCopyPreview.Phase.allCases {
             jobs.append(("onboarding-3-calibrate-\(phase.rawValue)", step(CalibrationCopyPreview(phase: phase))))
         }
