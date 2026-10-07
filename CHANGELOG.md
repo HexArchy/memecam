@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.2.1 — 2026-10-07
+
+- Fix: the menu bar popover was cut off on the left in Russian — the layout picker's long titles made the
+  content wider than the popover. The picker now shows icons (titles in the tooltip and for VoiceOver) next to
+  a *Layout* label, the stop button reads *Turn Off*, and the pause hint wraps instead of being truncated.
+
 ## v1.2.0 — 2026-10-07
 
 - **Smarter recognition out of the box** — two learned face models now vote with the landmark rules:

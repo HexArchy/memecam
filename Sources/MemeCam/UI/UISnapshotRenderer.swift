@@ -71,6 +71,10 @@ enum UISnapshotRenderer {
             .background(Color(nsColor: .windowBackgroundColor))
             .environment(model).environment(ui))))
         }
+        jobs.append(("menubar", AnyView(MenuBarContent()
+            .background(Color(nsColor: .windowBackgroundColor)).environment(model).environment(ui))))
+        jobs.append(("menubar-stop-row", AnyView(StopCameraRow().padding(14).frame(width: 300)
+            .background(Color(nsColor: .windowBackgroundColor)).environment(model))))
         for phase in CalibrationCopyPreview.Phase.allCases {
             jobs.append(("onboarding-3-calibrate-\(phase.rawValue)", step(CalibrationCopyPreview(phase: phase))))
         }

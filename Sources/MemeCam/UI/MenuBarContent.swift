@@ -48,11 +48,22 @@ struct MenuBarContent: View {
                 .buttonStyle(.borderedProminent)
             }
 
-            Picker("Layout", selection: $model.layout) {
-                ForEach(OutputLayout.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
+            // Icons only: the titles (long in Russian) would make the picker wider than the popover.
+            HStack {
+                Text("Layout").font(.subheadline.weight(.semibold))
+                Spacer()
+                Picker("Layout", selection: $model.layout) {
+                    ForEach(OutputLayout.allCases) { layout in
+                        Image(systemName: layout.symbol)
+                            .help(layout.title)
+                            .accessibilityLabel(layout.title)
+                            .tag(layout)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
 
             Divider()
 
@@ -69,7 +80,8 @@ struct MenuBarContent: View {
             }
         }
         .padding(14)
-        .frame(width: 280)
+        .frame(width: 300)
+        .fixedSize(horizontal: false, vertical: true)
         .tint(Design.accent)
     }
 
@@ -117,6 +129,7 @@ private struct PauseToggleRow: View {
                     Text(paused ? "Camera only · \u{2303}\u{2325}P to resume" : "\u{2303}\u{2325}P pauses from any app")
                         .font(.caption)
                         .foregroundStyle(Design.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             } icon: {
                 Image(systemName: paused ? "pause.circle.fill" : "play.circle.fill")
@@ -133,7 +146,7 @@ private struct PauseToggleRow: View {
 }
 
 /// While the camera runs: what goes out right now and a one-click "Stop Camera", always first.
-private struct StopCameraRow: View {
+struct StopCameraRow: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
@@ -148,8 +161,10 @@ private struct StopCameraRow: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             Spacer(minLength: 4)
-            Button("Stop Camera", systemImage: "stop.fill") { model.stop() }
+            Button("Turn Off", systemImage: "stop.fill") { model.stop() }
                 .buttonStyle(.borderedProminent)
+                .fixedSize()
+                .accessibilityLabel("Stop Camera")
                 .tint(.red)
                 .help("Turns the camera off. Apps using MemeCam see \u{201C}MemeCam is paused\u{201D}.")
         }
