@@ -45,11 +45,12 @@ struct MemeCamApp: App {
 }
 
 extension CameraPresence {
-    /// Menu bar icon: is the camera on, and what goes out.
+    /// Menu bar icon: a paw, so MemeCam is easy to spot among the other icons; outlined while the camera
+    /// is off, filled while live, and the pause / away states keep their own symbols.
     var menuBarSymbol: String {
         switch self {
-        case .off: "video.slash"
-        case .live: "face.smiling.inverse"
+        case .off: "pawprint"
+        case .live: "pawprint.fill"
         case .paused: "pause.circle"
         case .away: "moon.zzz"
         }
