@@ -28,7 +28,7 @@ struct ContentView: View {
         .toolbar(removing: .title)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .containerBackground(.thinMaterial, for: .window)
-        .tint(Design.brand)
+        .tint(Design.accent)
         .frame(minWidth: 760, minHeight: 600)
     }
 

@@ -17,20 +17,20 @@ struct StateOverlay: View {
                     .multilineTextAlignment(.center)
                 Text("MemeCam picks a cat or hamster meme for your expression and sends it to Discord, Telegram and every other call app.")
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .frame(maxWidth: 440)
                 actions(primary: "Start Camera", symbol: "video.fill") { model.start() }
             case .starting:
                 ProgressView().controlSize(.large)
                 Text("Starting camera…")
                     .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
             case .denied:
                 hero("lock.shield", tint: .orange)
                 Text("Camera Access Is Off").font(.title.bold())
                 Text("MemeCam needs your camera to recognise expressions and gestures. Video never leaves your Mac.")
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .frame(maxWidth: 420)
                 HStack(spacing: 12) {
                     Button("Open Privacy Settings") { model.openCameraPrivacySettings() }
@@ -45,7 +45,7 @@ struct StateOverlay: View {
                 Text("Couldn't Start the Camera").font(.title.bold())
                 Text(message)
                     .multilineTextAlignment(.center)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .frame(maxWidth: 420)
                 actions(primary: "Try Again", symbol: "arrow.clockwise") { model.start() }
             }

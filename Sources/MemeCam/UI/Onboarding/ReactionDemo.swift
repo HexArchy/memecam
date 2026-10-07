@@ -29,7 +29,7 @@ struct ReactionDemo: View {
             }
             Image(systemName: "arrow.right")
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Design.tertiaryText)
             ZStack {
                 ForEach(pairs) { pair in
                     let shown = pair.reaction == current

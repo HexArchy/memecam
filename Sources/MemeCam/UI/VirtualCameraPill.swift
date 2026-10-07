@@ -112,7 +112,7 @@ struct VirtualCameraDetail: View {
             if case .failed(let message) = state {
                 Text(message)
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
             VStack(alignment: .leading, spacing: 10) {
@@ -126,7 +126,7 @@ struct VirtualCameraDetail: View {
                     Text("Send test pattern")
                     Text("Colour bars and a clock instead of your camera — check that Discord or Telegram see MemeCam.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Design.secondaryText)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -134,7 +134,7 @@ struct VirtualCameraDetail: View {
             .disabled(!virtualCamera.deviceVisible && !virtualCamera.testPattern)
             Text("In Discord, Telegram, Zoom or FaceTime choose \u{201C}MemeCam\u{201D} as the camera.")
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Design.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .onAppear { model.virtualCamera.beginHealthMonitoring() }
@@ -190,7 +190,7 @@ private struct HealthRow: View {
                 if !detail.isEmpty {
                     Text(detail)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Design.secondaryText)
                         .monospacedDigit()
                         .fixedSize(horizontal: false, vertical: true)
                 }

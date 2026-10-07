@@ -19,7 +19,7 @@ struct ReactionStrip: View {
                 Text(running ? "Click one to preview it, or drop images on it to add memes."
                              : "Make a face or a gesture. Drop images on a reaction to add your own.")
                     .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .lineLimit(1)
                 Spacer(minLength: 12)
                 Button("Customize Memes…", systemImage: "photo.on.rectangle.angled") { ui.editMemes() }

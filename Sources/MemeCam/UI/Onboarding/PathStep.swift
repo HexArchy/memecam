@@ -40,7 +40,7 @@ struct PathStep: View {
             Spacer(minLength: 20)
             Label("Press Return to calibrate, or 1\u{2009}\u{2013}\u{2009}3 to choose", systemImage: "keyboard")
                 .font(.callout)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Design.tertiaryText)
                 .riseIn(visible, delay: 0.35, reduceMotion: reduceMotion)
             Spacer(minLength: 8)
         }
@@ -77,7 +77,7 @@ private struct PathCardLabel: View {
                     .frame(width: 46, height: 46)
                     .background {
                         if recommended {
-                            Circle().fill(OnboardingStyle.accentGradient)
+                            Circle().fill(OnboardingStyle.fillGradient)
                         } else {
                             Circle().fill(Design.brand.opacity(0.15))
                         }
@@ -98,12 +98,12 @@ private struct PathCardLabel: View {
                 .foregroundStyle(.primary)
             Text(detail)
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Design.secondaryText)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             Label(footnote, systemImage: recommended ? "timer" : "info.circle")
                 .font(.caption)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Design.tertiaryText)
         }
         .multilineTextAlignment(.leading)
         .noAutomaticHyphenation()

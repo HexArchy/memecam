@@ -28,12 +28,12 @@ struct MenuBarContent: View {
             if model.cameraState == .running, let issue = model.status.cameraIssue {
                 Label(issue, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             } else if model.cameraState == .running, let note = model.powerMode.note {
                 Label(note, systemImage: model.powerMode.idle ? "leaf" : "thermometer.medium")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -70,7 +70,7 @@ struct MenuBarContent: View {
         }
         .padding(14)
         .frame(width: 280)
-        .tint(Design.brand)
+        .tint(Design.accent)
     }
 
     private func openMainWindow() {
@@ -116,7 +116,7 @@ private struct PauseToggleRow: View {
                         .font(.headline)
                     Text(paused ? "Camera only · \u{2303}\u{2325}P to resume" : "\u{2303}\u{2325}P pauses from any app")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Design.secondaryText)
                 }
             } icon: {
                 Image(systemName: paused ? "pause.circle.fill" : "play.circle.fill")

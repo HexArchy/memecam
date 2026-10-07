@@ -29,7 +29,7 @@ struct ReactionChip: View {
                         .frame(width: 84, height: 5)
                     Text(confidence, format: .percent.precision(.fractionLength(0)))
                         .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Design.secondaryText)
                 }
             }
             if paused {
@@ -61,7 +61,7 @@ private struct PausedBadge: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
-            .background(.orange, in: .capsule)
+            .background(Design.accent, in: .capsule)
             .help("Memes are paused — the camera goes out plain. \u{2303}\u{2325}P resumes.")
     }
 }

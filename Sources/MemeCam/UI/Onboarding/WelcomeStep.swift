@@ -19,7 +19,7 @@ struct WelcomeStep: View {
                 .riseIn(visible, delay: 0.15, reduceMotion: reduceMotion)
             Text("Make a face. Get a meme. Live in every call.")
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Design.secondaryText)
                 .padding(.top, 6)
                 .riseIn(visible, delay: 0.22, reduceMotion: reduceMotion)
             ReactionDemo()

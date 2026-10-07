@@ -92,7 +92,7 @@ struct CalibrationStep: View {
             if tryingOut {
                 Image(systemName: "arrow.right")
                     .font(.title2.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Design.tertiaryText)
                     .transition(.opacity)
                 LiveMemeCard(meme: status.meme, reaction: status.reaction)
                     .frame(width: 200, height: 200)
@@ -146,12 +146,12 @@ struct CalibrationStep: View {
                     .keyboardShortcut(.defaultAction)
                 Text("Starts by itself once your face is steady")
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Design.tertiaryText)
             }
         case .measuring:
             Label("Measuring\u{2026}", systemImage: "waveform.path.ecg")
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Design.secondaryText)
                 .symbolEffect(.pulse, isActive: !reduceMotion)
         case .success:
             Color.clear
@@ -325,7 +325,7 @@ private struct CameraProblem: View {
                 .accessibilityHidden(true)
             Text(message)
                 .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Design.secondaryText)
                 .frame(maxWidth: 420)
         }
         .frame(maxHeight: .infinity)

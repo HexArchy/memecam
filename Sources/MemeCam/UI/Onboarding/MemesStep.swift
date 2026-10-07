@@ -37,7 +37,7 @@ struct MemesStep: View {
                 KeyCap(keys: "\u{21E7}\u{2318}E")
             }
             .font(.callout)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Design.secondaryText)
             .padding(.top, 14)
             .riseIn(visible, delay: 0.26, reduceMotion: reduceMotion)
             Spacer(minLength: 12)
@@ -101,7 +101,7 @@ private struct AnimalPicker: View {
                     .background {
                         if selected {
                             Capsule()
-                                .fill(OnboardingStyle.accentGradient)
+                                .fill(OnboardingStyle.fillGradient)
                                 .shadow(color: Design.brand.opacity(0.4), radius: 8, y: 3)
                                 .matchedGeometryEffect(id: "selection", in: namespace)
                         }

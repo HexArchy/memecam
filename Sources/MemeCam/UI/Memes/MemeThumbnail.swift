@@ -35,7 +35,7 @@ struct MemeThumbnail: View {
             } else {
                 Image(systemName: symbol)
                     .font(.title2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
             }
         }
         .clipped()

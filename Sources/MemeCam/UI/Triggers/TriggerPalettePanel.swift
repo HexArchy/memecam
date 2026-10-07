@@ -44,7 +44,7 @@ final class TriggerPaletteController {
     private func makePanel() -> TriggerPanel {
         let root = TriggerPaletteView()
             .environment(model)
-            .tint(Design.brand)
+            .tint(Design.accent)
         let hosting = FirstMouseHostingView(rootView: root)
         hosting.sizingOptions = [.intrinsicContentSize]
         let panel = TriggerPanel(contentView: hosting)
@@ -114,7 +114,7 @@ private struct TriggerPaletteView: View {
                     .accessibilityHidden(true)
                 Text(statusText)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .lineLimit(1)
                     .accessibilityLabel(statusAccessibilityText)
                 Spacer(minLength: 4)

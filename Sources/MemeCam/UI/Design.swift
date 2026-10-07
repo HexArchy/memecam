@@ -6,6 +6,14 @@ enum Design {
     /// Warm orange from the app icon; used as the app tint.
     static let brand = Color(red: 1.0, green: 0.54, blue: 0.36)
     static let brandSecondary = Color(red: 1.0, green: 0.77, blue: 0.43)
+    /// Deeper orange for fills that carry white text (prominent buttons, selection): white on it is ~4.3:1,
+    /// on `brand` only ~2.3:1, which made button titles look washed out.
+    static let accent = Color(red: 0.86, green: 0.30, blue: 0.10)
+
+    /// Secondary/tertiary text a notch stronger than the system styles, which fade out on the translucent,
+    /// tinted window background.
+    static let secondaryText = Color.primary.opacity(0.74)
+    static let tertiaryText = Color.primary.opacity(0.56)
 
     static let stageRadius: CGFloat = 20
     static let cardRadius: CGFloat = 14
@@ -37,7 +45,7 @@ struct PrivacyNote: View {
     var body: some View {
         Label("Video is processed on this Mac only \u{2014} nothing is uploaded", systemImage: "lock.shield")
             .font(.callout)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Design.secondaryText)
             .fixedSize(horizontal: false, vertical: true)
     }
 }

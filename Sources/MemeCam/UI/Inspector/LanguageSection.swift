@@ -49,7 +49,7 @@ struct LanguageSection: View {
                     Button("Restart", action: relaunch)
                 } label: {
                     Text("Restart MemeCam to apply")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Design.secondaryText)
                 }
             }
         } header: {

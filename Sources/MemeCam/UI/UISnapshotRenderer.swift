@@ -129,10 +129,10 @@ private struct CalibrationCopyPreview: View {
         case .aligning, .noFace:
             VStack(spacing: 6) {
                 Button("Calibrate Now") {}.onboardingPrimary()
-                Text("Starts by itself once your face is steady").font(.caption).foregroundStyle(.tertiary)
+                Text("Starts by itself once your face is steady").font(.caption).foregroundStyle(Design.tertiaryText)
             }
         case .measuring:
-            Label("Measuring\u{2026}", systemImage: "waveform.path.ecg").font(.title3).foregroundStyle(.secondary)
+            Label("Measuring\u{2026}", systemImage: "waveform.path.ecg").font(.title3).foregroundStyle(Design.secondaryText)
         case .success:
             Color.clear
         case .tryIt, .nailed:

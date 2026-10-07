@@ -55,7 +55,7 @@ private struct PauseButton: View {
                 .contentTransition(.symbolEffect(.replace))
         }
         .glassButtonStyle(prominent: paused)
-        .tint(paused ? .orange : nil)
+        .tint(paused ? Design.accent : nil)
         .controlSize(.extraLarge)
         .help(paused ? "Resume memes (\u{2303}\u{2325}P, works in any app)"
                      : "Pause memes — camera only (\u{2303}\u{2325}P, works in any app)")
@@ -95,7 +95,7 @@ private struct OptionsCapsule: View {
 
             HStack(spacing: 4) {
                 Image(systemName: "pawprint.fill")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .accessibilityHidden(true)
                 Picker("Animals", selection: $model.animals) {
                     ForEach(AnimalFilter.allCases) { Text($0.title).tag($0) }

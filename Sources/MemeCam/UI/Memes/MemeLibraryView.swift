@@ -30,7 +30,7 @@ private struct MemeReactionGrid: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Pick a reaction to choose its pictures. You can also drop images or GIFs from Finder onto a reaction.")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
 
                 section("Expressions", reactions: Reaction.allCases.filter { !$0.isGesture })

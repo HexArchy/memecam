@@ -53,7 +53,7 @@ struct UpdateDetail: View {
             case .available(let version, let notes):
                 Label("MemeCam \(version) is available", systemImage: "sparkles")
                     .font(.headline)
-                Text("You have \(updater.currentVersion).").foregroundStyle(.secondary)
+                Text("You have \(updater.currentVersion).").foregroundStyle(Design.secondaryText)
                 if !notes.isEmpty {
                     ScrollView {
                         Text(LocalizedStringKey(Self.plainNotes(notes)))
@@ -75,10 +75,10 @@ struct UpdateDetail: View {
                     ProgressView().controlSize(.small)
                     Text(updater.state == .downloading ? "Downloading the update…" : "Verifying and installing…")
                 }
-                Text("MemeCam will relaunch by itself.").font(.callout).foregroundStyle(.secondary)
+                Text("MemeCam will relaunch by itself.").font(.callout).foregroundStyle(Design.secondaryText)
             case .failed(let message):
                 Label("Update failed", systemImage: "exclamationmark.triangle").font(.headline)
-                Text(message).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(message).font(.callout).foregroundStyle(Design.secondaryText).fixedSize(horizontal: false, vertical: true)
                 HStack {
                     Button("Close") { updater.dismiss() }
                     Spacer()

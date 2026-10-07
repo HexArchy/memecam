@@ -39,7 +39,7 @@ struct SettingsForm: View {
             } footer: {
                 Text("Calibrate from the control bar while the camera runs: relax your face and look at the camera.")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
             }
 
             Section {
@@ -50,7 +50,7 @@ struct SettingsForm: View {
                         HStack {
                             Slider(value: $model.popDuration, in: 2...10, step: 1) { Text("Meme stays") }
                                 .labelsHidden()
-                            Text("\(Int(model.popDuration)) s").monospacedDigit().foregroundStyle(.secondary)
+                            Text("\(Int(model.popDuration)) s").monospacedDigit().foregroundStyle(Design.secondaryText)
                         }
                     }
                     LabeledContent("Pop-up style") {
@@ -69,7 +69,7 @@ struct SettingsForm: View {
                     HStack {
                         Slider(value: $model.cooldown, in: 0...10, step: 1) { Text("Cooldown") }
                             .labelsHidden()
-                        Text("\(Int(model.cooldown)) s").monospacedDigit().foregroundStyle(.secondary)
+                        Text("\(Int(model.cooldown)) s").monospacedDigit().foregroundStyle(Design.secondaryText)
                     }
                 }
                 .help("The same reaction can't pop up again for this long after its meme went away.")
@@ -99,7 +99,7 @@ struct SettingsForm: View {
             } footer: {
                 Text("Click a tile in the palette or the menu bar to pop its meme up. Right-click a tile to assign a reaction or one specific meme.")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
             }
 
             Section {
@@ -109,7 +109,7 @@ struct SettingsForm: View {
             } footer: {
                 Text("The camera turns back on when you unlock, if it was running. It always pauses while the Mac sleeps.")
                     .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
             }
 
             LanguageSection()
@@ -186,7 +186,7 @@ private struct AccuracySection: View {
         } footer: {
             Text("About 3 minutes. Each reaction: get ready, then hold it. Space pauses, → skips, ← redoes. MemeCam scores itself on your face.")
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Design.secondaryText)
         }
     }
 }
@@ -204,16 +204,16 @@ private struct UpdatesSection: View {
                     .disabled(updater.state == .checking)
             }
             if updater.state == .upToDate {
-                Label("You're up to date", systemImage: "checkmark.seal").foregroundStyle(.secondary)
+                Label("You're up to date", systemImage: "checkmark.seal").foregroundStyle(Design.secondaryText)
             } else if case .failed(let message) = updater.state {
-                Text(message).font(.callout).foregroundStyle(.secondary)
+                Text(message).font(.callout).foregroundStyle(Design.secondaryText)
             }
         } header: {
             Label("Updates", systemImage: "arrow.down.circle")
         } footer: {
             Text("Updates come from GitHub Releases, are verified against MemeCam's signature and Apple notarization, then installed and relaunched.")
                 .font(.callout)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Design.secondaryText)
         }
     }
 }

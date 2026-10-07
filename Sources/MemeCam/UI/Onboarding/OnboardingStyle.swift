@@ -11,6 +11,11 @@ enum OnboardingStyle {
         colors: [Design.brandSecondary, Design.brand, Color(red: 1.0, green: 0.38, blue: 0.56)],
         startPoint: .topLeading, endPoint: .bottomTrailing)
 
+    /// Deeper take on `accentGradient` for fills under white text (selected chips, icon badges).
+    static let fillGradient = LinearGradient(
+        colors: [Color(red: 0.93, green: 0.42, blue: 0.14), Design.accent, Color(red: 0.84, green: 0.20, blue: 0.40)],
+        startPoint: .topLeading, endPoint: .bottomTrailing)
+
     static let success = Color(red: 0.2, green: 0.78, blue: 0.45)
 
     static func heroTitle(_ size: CGFloat = 30) -> Font { .system(size: size, weight: .bold, design: .rounded) }
@@ -27,13 +32,13 @@ extension View {
             .font(.title3.weight(.semibold))
             .controlSize(.extraLarge)
             .glassButtonStyle(prominent: true)
-            .tint(Design.brand)
+            .tint(Design.accent)
     }
 
     func onboardingSecondary() -> some View {
         self
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Design.secondaryText)
             .font(.callout)
     }
 
@@ -67,7 +72,7 @@ struct StepHeader: View {
             if let subtitle {
                 Text(subtitle)
                     .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .multilineTextAlignment(.center)
                     .contentTransition(.opacity)
                     .fixedSize(horizontal: false, vertical: true)

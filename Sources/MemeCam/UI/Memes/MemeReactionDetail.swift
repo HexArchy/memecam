@@ -74,7 +74,7 @@ struct MemeReactionDetail: View {
                         .accessibilityAddTraits(.isHeader)
                     Text("\(count) memes")
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(Design.secondaryText)
                 }
                 Spacer(minLength: 8)
                 Button("Preview", systemImage: "play.fill") { model.trigger(reaction) }
@@ -116,7 +116,7 @@ private struct EnabledSwitch: View {
                 Text("Pop up memes")
                 Text(enabled ? "On — shows a meme when you do this." : "Off — still detected, but nothing pops up.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
             }
         }
         .toggleStyle(.switch)
@@ -141,7 +141,7 @@ private struct DropZone: View {
                     .font(.headline)
                 Text("Drop images or GIFs here, or click to choose files.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)

@@ -27,7 +27,7 @@ struct AccuracyTestOverlay: View {
         VStack(spacing: 0) {
             ProgressView(value: g.overallProgress)
                 .progressViewStyle(.linear)
-                .tint(Design.brand)
+                .tint(Design.accent)
                 .padding(.horizontal, 24)
                 .padding(.top, 14)
             Spacer()
@@ -56,13 +56,13 @@ private struct PromptCard: View {
                 Text(snapshot.phase == .prepare ? "Get ready · \(snapshot.stepIndex + 1) of \(snapshot.stepCount)"
                                                 : (snapshot.paused ? "Paused" : "Hold it!"))
                     .font(.callout.weight(.semibold))
-                    .foregroundStyle(snapshot.phase == .prepare ? .secondary : Design.brand)
+                    .foregroundStyle(snapshot.phase == .prepare ? Design.secondaryText : Design.brand)
                     .contentTransition(.opacity)
                 Text(snapshot.reaction.title)
                     .font(.system(.largeTitle, design: .rounded).weight(.bold))
                 Text(snapshot.reaction.howTo)
                     .font(.title3)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Design.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
                 if snapshot.phase == .hold {
                     Label {
