@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.0.1 — 2026-10-07
+
+- Fix: MemeCam did not launch on other Macs — the app declared an App Group its Developer ID profile
+  did not grant. The app no longer needs one; the camera extension's profile now authorizes it.
+- The app itself is notarized and stapled (not only the DMG), so it verifies offline after copying.
+- Build guard: every entitlement is checked against its provisioning profile; `syspolicy_check` runs on releases.
+- Virtual camera shows **Ready · Start Camera** when installed but idle (was “Connecting…”).
+- New Liquid Glass app icon.
+
 ## v1.0.0 — 2026-10-07
 
 First release.

@@ -281,8 +281,10 @@ def main():
 
     if revoke_serial:
         revoke(asc, revoke_serial)
+    # The camera extension's Mach service lives in the team-prefixed app group, so its
+    # profile must authorize App Groups or macOS refuses to launch it on other Macs.
     app = ensure_bundle(asc, APP_ID, "MemeCam", ["SYSTEM_EXTENSION_INSTALL"])
-    ext = ensure_bundle(asc, EXT_ID, "MemeCam Camera Extension", [])
+    ext = ensure_bundle(asc, EXT_ID, "MemeCam Camera Extension", ["APP_GROUPS"])
 
     if import_cert:
         pending = OUT / "pending-devid-key.pem"

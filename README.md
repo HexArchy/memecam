@@ -1,7 +1,7 @@
 <p align="center"><img src="Resources/Branding/cover.png" alt="MemeCam — your face → cat & hamster memes" width="100%"></p>
 
 <p align="center">
-  <a href="../../releases/latest"><img alt="Release" src="https://img.shields.io/badge/release-v1.0.0-ff8a5c"></a>
+  <a href="../../releases/latest"><img alt="Release" src="https://img.shields.io/badge/release-v1.0.1-ff8a5c"></a>
   <img alt="macOS 15+" src="https://img.shields.io/badge/macOS-15%2B%20·%20Liquid%20Glass%20on%2026-black">
   <img alt="Swift 6" src="https://img.shields.io/badge/Swift-6-F05138">
   <img alt="Apple Silicon" src="https://img.shields.io/badge/Apple%20Silicon-native-555">

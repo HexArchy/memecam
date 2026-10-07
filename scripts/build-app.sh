@@ -16,7 +16,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_ID="com.hexarch.memecam"
 EXT_ID="com.hexarch.memecam.camera-extension"
-SHORT_VERSION="1.0.0"
+SHORT_VERSION="1.0.1"
 # Monotonic, period-separated integers: sysextd replaces the extension only when this grows.
 BUILD_NUMBER="$(date +%Y%m%d).$(date +%H%M%S)"
 MIN_MACOS="15.0"
@@ -152,7 +152,6 @@ if [[ -f "$SIGN_ENV" ]]; then
 <plist version="1.0">
 <dict>
 	<key>com.apple.developer.system-extension.install</key><true/>
-	<key>com.apple.security.application-groups</key><array><string>$TEAM_ID.$APP_ID</string></array>
 	<key>com.apple.application-identifier</key><string>$TEAM_ID.$APP_ID</string>
 	<key>com.apple.developer.team-identifier</key><string>$TEAM_ID</string>
 	<key>com.apple.security.device.camera</key><true/>
@@ -160,6 +159,27 @@ if [[ -f "$SIGN_ENV" ]]; then
 </plist>
 ENT
   plutil -lint -s "$GEN_DIR/CameraExtension.entitlements" "$GEN_DIR/MemeCam.entitlements"
+
+  # Every entitlement that a provisioning profile governs must be granted by it, or macOS
+  # refuses to launch the binary on other Macs ("Operation not permitted").
+  check_entitlements() { # <entitlements.plist> <profile>
+    /usr/bin/python3 - "$1" "$2" <<'PY'
+import plistlib, subprocess, sys, fnmatch
+ent = plistlib.load(open(sys.argv[1], "rb"))
+prof = plistlib.loads(subprocess.run(["security", "cms", "-D", "-i", sys.argv[2]], capture_output=True).stdout)["Entitlements"]
+free = {"com.apple.security.app-sandbox", "com.apple.security.device.camera"}
+bad = []
+for k, v in ent.items():
+    if k in free: continue
+    if k not in prof: bad.append(k); continue
+    allowed = prof[k] if isinstance(prof[k], list) else [prof[k]]
+    for item in (v if isinstance(v, list) else [v]):
+        if isinstance(item, str) and not any(fnmatch.fnmatch(item, str(a)) for a in allowed): bad.append(f"{k}={item}")
+if bad: sys.exit("not granted by profile: " + ", ".join(bad))
+PY
+  }
+  check_entitlements "$GEN_DIR/CameraExtension.entitlements" "$EXT_PROFILE" || die "extension entitlements vs $(basename "$EXT_PROFILE")"
+  check_entitlements "$GEN_DIR/MemeCam.entitlements" "$APP_PROFILE" || die "app entitlements vs $(basename "$APP_PROFILE")"
 
   step "Signing (inside-out, hardened runtime)"
   codesign --force --options runtime $TIMESTAMP -s "$SIGN_IDENTITY" \
@@ -203,6 +223,33 @@ fi
 # ---------------------------------------------------------------------------------------------
 if [[ $RELEASE == 1 ]]; then
   [[ $SIGNED == 1 ]] || die "release build was not signed"
+  asc() { grep -E "^$1=" "$ASC_ENV" | head -1 | cut -d= -f2- | tr -d '"' ; }
+  KEY_ID="$(asc ASC_KEY_ID)"; ISSUER="$(asc ASC_ISSUER_ID)"
+  KEY_FILE="$(asc ASC_KEY_PATH)"; KEY_FILE="${KEY_FILE/#\~/$HOME}"
+  [[ -f "$KEY_FILE" ]] || KEY_FILE="$(dirname "$ASC_ENV")/AuthKey_$KEY_ID.p8"
+  [[ -n "$KEY_ID" && -n "$ISSUER" && -f "$KEY_FILE" ]] || die "ASC API key not found via $ASC_ENV"
+  notarize() { # <file>
+    local out status sub
+    out="$(xcrun notarytool submit "$1" --key "$KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER" \
+           --wait --timeout 60m --output-format json)" || true
+    status="$(printf '%s' "$out" | plutil -extract status raw -o - - 2>/dev/null || echo unknown)"
+    sub="$(printf '%s' "$out" | plutil -extract id raw -o - - 2>/dev/null || echo)"
+    if [[ "$status" != "Accepted" ]]; then
+      [[ -n "$sub" ]] && xcrun notarytool log "$sub" --key "$KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER" || true
+      die "notarization of $(basename "$1"): $status"
+    fi
+  }
+
+  # 1) Notarize the app itself and staple it, so the copy in /Applications carries its own ticket.
+  step "Notarizing the app (takes a few minutes)"
+  APP_ZIP="$ROOT/build/MemeCam-notarize.zip"
+  ditto -c -k --keepParent "$APP" "$APP_ZIP"
+  notarize "$APP_ZIP"
+  rm -f "$APP_ZIP"
+  xcrun stapler staple "$APP"
+  syspolicy_check distribution "$APP" || die "syspolicy_check failed"
+
+  # 2) Then the DMG that wraps it.
   DMG="$ROOT/build/MemeCam.dmg"
   step "Creating $DMG"
   STAGE="$(mktemp -d)"
@@ -213,20 +260,8 @@ if [[ $RELEASE == 1 ]]; then
   rm -rf "$STAGE"
   codesign --force --timestamp -s "$SIGN_IDENTITY" "$DMG"
 
-  step "Notarizing (takes a few minutes)"
-  asc() { grep -E "^$1=" "$ASC_ENV" | head -1 | cut -d= -f2- | tr -d '"' ; }
-  KEY_ID="$(asc ASC_KEY_ID)"; ISSUER="$(asc ASC_ISSUER_ID)"
-  KEY_FILE="$(asc ASC_KEY_PATH)"; KEY_FILE="${KEY_FILE/#\~/$HOME}"
-  [[ -f "$KEY_FILE" ]] || KEY_FILE="$(dirname "$ASC_ENV")/AuthKey_$KEY_ID.p8"
-  [[ -n "$KEY_ID" && -n "$ISSUER" && -f "$KEY_FILE" ]] || die "ASC API key not found via $ASC_ENV"
-  OUT_JSON="$(xcrun notarytool submit "$DMG" --key "$KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER" \
-              --wait --timeout 45m --output-format json)" || true
-  STATUS="$(printf '%s' "$OUT_JSON" | plutil -extract status raw -o - - 2>/dev/null || echo unknown)"
-  SUB_ID="$(printf '%s' "$OUT_JSON" | plutil -extract id raw -o - - 2>/dev/null || echo)"
-  if [[ "$STATUS" != "Accepted" ]]; then
-    [[ -n "$SUB_ID" ]] && xcrun notarytool log "$SUB_ID" --key "$KEY_FILE" --key-id "$KEY_ID" --issuer "$ISSUER" || true
-    die "notarization status: $STATUS"
-  fi
+  step "Notarizing the DMG"
+  notarize "$DMG"
   xcrun stapler staple "$DMG"
   spctl -a -t open --context context:primary-signature -vv "$DMG" 2>&1 | sed 's/^/  /'
   printf '\nRelease DMG: %s (notarized, runs on any Mac)\n' "$DMG"
