@@ -79,6 +79,11 @@ final class Updater {
     }
 
     func check(userInitiated: Bool) async {
+        // Without a real version we can't tell what's newer — never update (avoids update loops).
+        guard currentVersion.range(of: #"^\d+\.\d+\.\d+$"#, options: .regularExpression) != nil else {
+            state = userInitiated ? .failed("This build has no version number, so it can't update itself.") : .idle
+            return
+        }
         if case .downloading = state { return }
         if case .installing = state { return }
         state = .checking
