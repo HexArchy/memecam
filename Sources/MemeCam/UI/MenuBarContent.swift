@@ -24,6 +24,11 @@ struct MenuBarContent: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+            } else if model.cameraState == .running, let note = model.powerMode.note {
+                Label(note, systemImage: model.powerMode.idle ? "leaf" : "thermometer.medium")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Button { model.toggle() } label: {

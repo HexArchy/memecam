@@ -75,6 +75,14 @@ enum CMIO {
         uint32(of: device, kCMIODevicePropertyDeviceIsRunningSomewhere).map { $0 != 0 }
     }
 
+    /// Custom device property published by the camera extension ('mcsc', see CameraExtension/DeviceSource.swift):
+    /// the number of apps reading the source stream. nil when the installed extension predates it.
+    static func sourceClients(_ device: CMIOObjectID) -> Int? {
+        var addr = address(0x6D63_7363) // 'mcsc'
+        guard CMIOObjectHasProperty(device, &addr) else { return nil }
+        return string(of: device, 0x6D63_7363).flatMap { Int($0) }
+    }
+
     /// Calls `handler` on `queue` whenever the system device list changes. Returns a token for `removeListener`.
     static func addDevicesListener(queue: DispatchQueue, _ handler: @escaping @Sendable () -> Void) -> CMIOObjectPropertyListenerBlock? {
         var addr = address(kCMIOHardwarePropertyDevices)

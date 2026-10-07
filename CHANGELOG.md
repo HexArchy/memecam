@@ -10,6 +10,20 @@
   and gallery context menus. Off reactions are still detected but never pop up; their cards are dimmed with an “Off” badge.
 - **Cooldown** — the same reaction can't pop up again for a few seconds after its meme went away
   (default 4 s, 0–10 s in inspector › Picture). Neutral and “nobody here” are exempt.
+- **Idle mode** — with the MemeCam window closed, minimised or covered and no app using the MemeCam
+  camera, detection, compositing and the virtual-camera feed pause (the menu bar shows “Idle — saving power”);
+  they resume as soon as the window shows or Discord/Zoom opens the camera. The camera extension now reports
+  how many apps read it, so a call with the window closed keeps full speed.
+- **Lighter detection** — Vision is capped at 15 Hz (was ~30), 10 Hz in Low Power Mode and 8 Hz when the
+  Mac is hot; the face is detected once and fed to the landmarks request. The hidden preview gets no frames.
+- **Camera recovery** — unplugged or out-of-range cameras fall back to the default and switch back when
+  they return; session errors restart the camera with backoff; the camera pauses during sleep and resumes on wake.
+  New setting *Stop camera when Mac locks* (on by default; resumes on unlock).
+- **Camera choice is remembered** even when that camera is missing at launch (“iPhone (not connected)” in the menu).
+- Fix: switching cameras no longer freezes the window (configuration runs off the main thread), a failed
+  switch keeps the current camera running and says why, and repeated starts no longer pile up watchdog timers.
+- Fix: data races between the UI, capture and Vision threads (camera name, running flag, hand-detection flag,
+  frame timing) that could crash while switching cameras.
 
 ## v1.0.2 — 2026-10-07
 

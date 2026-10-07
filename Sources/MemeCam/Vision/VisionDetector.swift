@@ -7,11 +7,17 @@ import Vision
 /// Runs face-landmark and hand-pose detection on camera frames.
 ///
 /// Speed notes (vs. Python/MediaPipe meme apps that run ~15–25 FPS on CPU):
-/// - One `VNImageRequestHandler` per frame executes both requests in a single pass,
-///   sharing the image pre-processing; Vision schedules the models on the ANE/GPU.
-/// - Request objects are created once and reused.
-/// - Hand pose runs every other frame while no hand is visible, every frame otherwise.
-/// - Called only from the capture queue, so no locking is needed.
+/// - The face is detected once: face rectangles (which also carry yaw/pitch) run first, together with
+///   hand pose, and the largest face is fed into the landmarks request via `inputFaceObservations`,
+///   so landmarks skip their own detection pass. No face: landmarks don't run at all.
+/// - One `VNImageRequestHandler` per frame, shared by both passes (image pre-processing is cached);
+///   Vision schedules the models on the ANE/GPU. Request objects are created once and reused.
+/// - Hand pose runs every other call while no hand is visible, every call otherwise.
+/// - The caller rate-limits (MemePipeline: ~15 Hz, lower in Low Power Mode / when hot).
+///
+/// Concurrency invariant (why `@unchecked Sendable` is sound): `detect` is only called on the
+/// pipeline's serial `visionQueue`, one job at a time, so the requests and the cadence state below are
+/// confined to that queue. Settings arrive as arguments instead of shared properties.
 final class VisionDetector: @unchecked Sendable {
     private let faceRequest: VNDetectFaceLandmarksRequest = {
         let r = VNDetectFaceLandmarksRequest()
@@ -35,40 +41,36 @@ final class VisionDetector: @unchecked Sendable {
     private var handsVisible = false
     private var lastHands: [HandPose] = []
 
-    var detectHands = true
     /// Minimum per-joint confidence; Vision reports low confidence for occluded joints.
-    var jointConfidence: Float = 0.15
+    private let jointConfidence: Float = 0.15
 
-    func detect(_ pixelBuffer: CVPixelBuffer, timestamp: TimeInterval) -> FrameObservation {
+    func detect(_ pixelBuffer: CVPixelBuffer, timestamp: TimeInterval, detectHands: Bool) -> FrameObservation {
         frameIndex &+= 1
         let width = Double(CVPixelBufferGetWidth(pixelBuffer))
         let height = Double(CVPixelBufferGetHeight(pixelBuffer))
         let aspect = width / height
 
         let runHands = detectHands && (handsVisible || frameIndex % 2 == 0)
-        let requests: [VNRequest] = runHands ? [poseRequest, faceRequest, handRequest] : [poseRequest, faceRequest]
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up)
         do {
-            try handler.perform(requests)
+            try handler.perform(runHands ? [poseRequest, handRequest] : [poseRequest])
         } catch {
             return FrameObservation(timestamp: timestamp, face: nil, hands: lastHands)
         }
 
-        // Largest face only.
-        let faceObs = (faceRequest.results ?? []).max {
+        // Largest face only. Rectangles revision 3 carries yaw/pitch, which landmarks don't.
+        let pose = (poseRequest.results ?? []).max {
             $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height
         }
-        // Pose from the rectangles result that best overlaps the chosen face.
-        let pose = faceObs.flatMap { f in
-            (poseRequest.results ?? []).max { a, b in
-                a.boundingBox.intersection(f.boundingBox).width < b.boundingBox.intersection(f.boundingBox).width
+        var face: FaceLandmarks?
+        if let pose {
+            faceRequest.inputFaceObservations = [pose]
+            if (try? handler.perform([faceRequest])) != nil, let obs = faceRequest.results?.first,
+               var f = Self.landmarks(obs, imageSize: CGSize(width: width, height: height)) {
+                if let yaw = pose.yaw?.doubleValue { f.yaw = yaw }
+                if let pitch = pose.pitch?.doubleValue { f.pitch = pitch }
+                face = f
             }
-        }
-        var face = faceObs.flatMap { Self.landmarks($0, imageSize: CGSize(width: width, height: height)) }
-        if let pose, var f = face {
-            if let yaw = pose.yaw?.doubleValue { f.yaw = yaw }
-            if let pitch = pose.pitch?.doubleValue { f.pitch = pitch }
-            face = f
         }
 
         if runHands {

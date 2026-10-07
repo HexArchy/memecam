@@ -9,7 +9,7 @@ struct PreviewStage: View {
 
     var body: some View {
         let running = model.cameraState == .running
-        let issue = running ? model.status.cameraIssue : nil
+        let issue = running ? model.cameraSwitchError ?? model.status.cameraIssue : nil
         ZStack {
             if running {
                 Color.black

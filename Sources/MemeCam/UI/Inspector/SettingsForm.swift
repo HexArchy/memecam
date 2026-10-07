@@ -66,6 +66,16 @@ struct SettingsForm: View {
                 Label("Picture", systemImage: "rectangle.on.rectangle")
             }
 
+            Section {
+                Toggle("Stop camera when Mac locks", isOn: $model.stopCameraWhenLocked)
+            } header: {
+                Label("Camera", systemImage: "web.camera")
+            } footer: {
+                Text("The camera turns back on when you unlock, if it was running. It always pauses while the Mac sleeps.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
             UpdatesSection()
 
             AccuracySection()
@@ -89,6 +99,8 @@ private struct DebugRows: View {
         row("Camera", status.cameraName.isEmpty ? "—" : status.cameraName)
         row("Output FPS", status.outputFPS.formatted(.number.precision(.fractionLength(1))))
         row("Inference", "\(status.inferenceMs.formatted(.number.precision(.fractionLength(1)))) ms")
+        row("Vision rate", status.idle ? "paused" : "\(Int(status.visionHz)) Hz")
+        if let note = status.powerNote { row("Power", note) }
         if let m = status.metrics {
             row("Mouth open", fmt(m.mouthOpen))
             row("Mouth width", fmt(m.mouthWidth))

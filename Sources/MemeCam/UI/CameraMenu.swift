@@ -16,6 +16,12 @@ struct CameraMenu: View {
                           systemImage: camera.isContinuity ? "iphone" : "web.camera")
                         .tag(String?.some(camera.id))
                 }
+                // The preferred camera is remembered while it is away; MemeCam uses the default meanwhile
+                // and switches back when it reconnects.
+                if let missing = model.missingPreferredCamera {
+                    Label("\(missing.name) (not connected)", systemImage: "web.camera")
+                        .tag(String?.some(missing.id))
+                }
             }
             .pickerStyle(.inline)
             .labelsHidden()
@@ -36,6 +42,7 @@ struct CameraMenu: View {
         if let id = model.selectedCameraID, let camera = model.cameras.first(where: { $0.id == id }) {
             return camera.name
         }
+        if let missing = model.missingPreferredCamera { return missing.name }
         return "Default Camera"
     }
 }

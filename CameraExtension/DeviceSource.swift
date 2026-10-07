@@ -20,7 +20,24 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource, @unchecked Sendab
     private let queue = DispatchQueue(label: "com.hexarch.memecam.camera-extension.device", qos: .userInteractive)
     private let log = Logger(subsystem: "com.hexarch.memecam.camera-extension", category: "device")
 
-    private var sourceClients = 0
+    private var sourceClients = 0 {
+        didSet {
+            guard sourceClients != oldValue else { return }
+            publishedClients.withLock { $0 = sourceClients }
+            device.notifyPropertiesChanged([Self.sourceClientsProperty: Self.clientsState(sourceClients)])
+        }
+    }
+    /// Copy of `sourceClients` for `deviceProperties`, which CMIO calls on its own queue.
+    private let publishedClients = OSAllocatedUnfairLock(initialState: 0)
+
+    /// Custom device property (CMIO selector 'mcsc', global scope): how many apps read the source stream,
+    /// as a decimal string. The app needs it for its idle mode: kCMIODevicePropertyDeviceIsRunningSomewhere
+    /// is also true while only MemeCam's own sink feed runs, so it can't tell "Discord is watching" apart.
+    static let sourceClientsProperty = CMIOExtensionProperty(rawValue: "4cc_mcsc_glob_0000")
+
+    private static func clientsState(_ n: Int) -> CMIOExtensionPropertyState<AnyObject> {
+        CMIOExtensionPropertyState(value: "\(n)" as NSString)
+    }
     private var sinkClient: CMIOExtensionClient?
     /// Incremented on every sink start/stop so stale consume callbacks stop their loop.
     private var sinkGeneration = 0
@@ -62,13 +79,16 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource, @unchecked Sendab
 
     // MARK: CMIOExtensionDeviceSource
 
-    var availableProperties: Set<CMIOExtensionProperty> { [.deviceTransportType, .deviceModel] }
+    var availableProperties: Set<CMIOExtensionProperty> { [.deviceTransportType, .deviceModel, Self.sourceClientsProperty] }
 
     func deviceProperties(forProperties properties: Set<CMIOExtensionProperty>) throws
         -> CMIOExtensionDeviceProperties {
         let result = CMIOExtensionDeviceProperties(dictionary: [:])
         if properties.contains(.deviceTransportType) { result.transportType = 0x7669_7274 } // 'virt'
         if properties.contains(.deviceModel) { result.model = Config.deviceName }
+        if properties.contains(Self.sourceClientsProperty) {
+            result.setPropertyState(Self.clientsState(publishedClients.withLock { $0 }), forProperty: Self.sourceClientsProperty)
+        }
         return result
     }
 

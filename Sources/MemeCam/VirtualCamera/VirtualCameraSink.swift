@@ -16,6 +16,11 @@ import os
 ///   disconnects, so the extension stops polling the sink and shows its placeholder; the next frame
 ///   reconnects. A kCMIOHardwarePropertyDevices listener reacts to the extension
 ///   appearing / disappearing immediately.
+/// - Consumer monitoring (idle mode): while enabled, every tick reads how many apps have the camera
+///   open and reports changes to the main actor.
+///
+/// `@unchecked Sendable` invariant: the hot-path state is behind `hot`; everything else is only touched
+/// on `io` (serial).
 final class VirtualCameraSink: FrameSink, @unchecked Sendable {
     enum Status: Equatable, Sendable {
         /// The MemeCam CMIO device is not visible (extension not installed, not approved, or restarting).
@@ -53,6 +58,11 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
     private var devicePresent = false
     private var reported: Status?
     private var statusHandler: (@MainActor @Sendable (Status) -> Void)?
+    /// The MemeCam device as of the last presence check (0 when missing).
+    private var presentDevice = CMIODeviceID(0)
+    private var monitorConsumers = false
+    private var reportedConsumer: Bool?
+    private var consumerHandler: (@MainActor @Sendable (Bool) -> Void)?
 
     init() {
         io.async { [self] in startMonitoring() }
@@ -64,6 +74,23 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
             statusHandler = handler
             reported = nil
             checkPresence(force: true)
+        }
+    }
+
+    /// `handler` runs on the main actor with "another app reads the MemeCam camera" whenever that
+    /// changes while monitoring is on (and once right after monitoring is switched on).
+    func setConsumerHandler(_ handler: @escaping @MainActor @Sendable (Bool) -> Void) {
+        io.async { [self] in consumerHandler = handler }
+    }
+
+    /// Consumer monitoring costs one CMIO property read per tick, so it only runs while the answer
+    /// matters (MemeCam's window is hidden and its camera runs).
+    func monitorConsumers(_ on: Bool) {
+        io.async { [self] in
+            guard monitorConsumers != on else { return }
+            monitorConsumers = on
+            reportedConsumer = nil
+            if on { checkConsumers() }
         }
     }
 
@@ -138,6 +165,7 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
     private func tick() {
         let now = Self.nowNanos()
         checkPresence(force: false)
+        if monitorConsumers { checkConsumers() }
         let (lastFrame, lastEnqueue) = hot.withLockUnchecked { ($0.lastFrameNanos, $0.lastEnqueueNanos) }
         let framesFlowing = lastFrame > 0 && now &- lastFrame < 2_000_000_000
         if stream != 0 {
@@ -164,6 +192,7 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
         lastPresenceCheckNanos = now
         let found = CMIO.findVirtualCamera()
         devicePresent = found != nil
+        presentDevice = found ?? 0
         if stream != 0 && found != device {
             log.notice("virtual camera device went away")
             disconnect()
@@ -226,6 +255,26 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
         device = 0
         stream = 0
         report()
+    }
+
+    /// Another app (Discord, Zoom…) reads the MemeCam camera. The extension publishes its source-client
+    /// count; an older extension without that property only offers kCMIODevicePropertyDeviceIsRunningSomewhere,
+    /// which our own sink feed also sets, so while connected the answer is "assume yes" (never idle wrongly).
+    private func checkConsumers() {
+        let active: Bool
+        if presentDevice == 0 {
+            active = false // no device: nobody can be watching
+        } else if let clients = CMIO.sourceClients(presentDevice) {
+            active = clients > 0
+        } else if stream == 0 {
+            active = CMIO.isRunningSomewhere(presentDevice) ?? false
+        } else {
+            active = true
+        }
+        guard active != reportedConsumer, let handler = consumerHandler else { return }
+        reportedConsumer = active
+        log.info("virtual camera consumer active: \(active)")
+        Task { @MainActor in handler(active) }
     }
 
     private func scheduleRetry(now: UInt64) {
