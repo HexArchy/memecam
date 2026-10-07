@@ -388,7 +388,7 @@ final class AppModel {
         }
         loadTeaching()
         virtualCamera.sink.setConsumerHandler { [weak self] active in self?.consumerChanged(active) }
-        virtualCamera.onDeviceLostAfterReplace = { [weak self] in
+        virtualCamera.onDeviceNotVisible = { [weak self] in
             guard let self, !isGuidedSessionRunning else { return }
             AppRelaunch.relaunch(resume: .init(camera: wantsCamera, testPattern: virtualCamera.testPattern))
         }

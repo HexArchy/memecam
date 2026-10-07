@@ -147,6 +147,7 @@ struct VirtualCameraDetail: View {
         case .openSettings: model.virtualCamera.openSystemSettings()
         case .startCamera: model.start()
         case .retry: model.virtualCamera.refresh()
+        case .relaunch: model.virtualCamera.relaunchApp()
         case nil: break
         }
     }
@@ -159,7 +160,8 @@ struct VirtualCameraDetail: View {
         case (.extensionEnabled, .failed): return item.fix == .install ? String(localized: "Not installed yet.")
                                                                        : String(localized: "Couldn't install it.")
         case (.deviceVisible, .ok): return String(localized: "Discord, Telegram and Zoom can pick \u{201C}MemeCam\u{201D}.")
-        case (.deviceVisible, .warning): return String(localized: "Switch MemeCam on in Camera Extensions.")
+        case (.deviceVisible, .warning):
+            return String(localized: "macOS hasn't shown it to MemeCam yet \u{2014} restart MemeCam. Still missing? Switch it on in Camera Extensions.")
         case (.framesFlowing, .ok):
             let fps = health.fps.formatted(.number.precision(.fractionLength(0)))
             return model.virtualCamera.testPattern ? String(localized: "Test pattern \u{00B7} \(fps) fps")
@@ -235,6 +237,7 @@ private struct HealthRow: View {
         switch item.fix {
         case .install: String(localized: "Install")
         case .openSettings: String(localized: "Open System Settings")
+        case .relaunch: String(localized: "Restart MemeCam")
         case .startCamera: String(localized: "Start Camera")
         case .retry: String(localized: "Retry")
         case nil: nil

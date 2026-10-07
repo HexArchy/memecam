@@ -81,10 +81,16 @@ final class VirtualCameraController {
     @ObservationIgnored private var healthWatchers = 0
 
     @ObservationIgnored private var replaceRequested = false
-    /// Called when the replaced extension is running but this process can't see its device (measured on
-    /// macOS 26.6: CMIO drops the device from the requesting process' list and never adds the new one
-    /// back, while every other process sees it). Only a fresh process recovers; AppModel relaunches.
-    @ObservationIgnored var onDeviceLostAfterReplace: (@MainActor () -> Void)?
+    /// Called when the extension is enabled but this process can't see its device. A running process never
+    /// gets camera devices added after it started (Apple forums thread 734259, unanswered since 2022): after
+    /// a first install or an update the app sees no MemeCam camera. Measured on macOS 26.6: re-scans
+    /// (AVCaptureDevice discovery, CMIO hardware properties) and submitting the request from a helper
+    /// process don't help; only a fresh process does, so AppModel relaunches (at most once per 10 minutes).
+    @ObservationIgnored var onDeviceNotVisible: (@MainActor () -> Void)?
+    /// The device stayed missing after the automatic relaunch: the health check offers a manual one.
+    private(set) var deviceStuck = false
+    @ObservationIgnored private var deviceWatch: Task<Void, Never>?
+    private static let relaunchKey = "lastDeviceRelaunch"
     /// Waits for the virtual camera to be idle before replacing the extension after an app update.
     @ObservationIgnored private var deferredReplace: Task<Void, Never>?
     @ObservationIgnored private let log = Logger(subsystem: "com.hexarch.memecam", category: "virtual-camera")
@@ -180,7 +186,7 @@ final class VirtualCameraController {
         }
         return VirtualCameraChecklist.Input(extensionStatus: ext, deviceVisible: deviceVisible, fps: health.fps,
                                             cameraRunning: cameraRunning, testPattern: testPattern,
-                                            clients: health.clients)
+                                            clients: health.clients, deviceStuck: deviceStuck)
     }
 
     func openSystemSettings() {
@@ -198,6 +204,7 @@ final class VirtualCameraController {
 
     private func sinkStatusChanged(_ status: VirtualCameraSink.Status) {
         sinkStatus = status
+        if status != .deviceMissing, deviceStuck { deviceStuck = false }
         let visible = status != .deviceMissing
         if visible != deviceVisible { deviceVisible = visible }
         if status != .deviceMissing {
@@ -217,7 +224,7 @@ final class VirtualCameraController {
             extensionInfo = .enabled
             activateHandler = nil
             sink.checkNow()
-            if replaceRequested { verifyDeviceAfterReplace() }
+            watchForMissingDevice()
         case .willCompleteAfterReboot:
             installOutcome = .failed(String(localized: "Restart your Mac to finish installing the MemeCam virtual camera."))
             activateHandler = nil
@@ -299,13 +306,31 @@ final class VirtualCameraController {
         install()
     }
 
-    private func verifyDeviceAfterReplace() {
-        Task { [weak self, sink, log] in
+    /// While the extension is enabled but the device missing: after 5 s, relaunch once (a fresh process sees
+    /// the device); if that already happened recently, show the manual "Restart MemeCam" fix instead.
+    private func watchForMissingDevice() {
+        guard deviceWatch == nil else { return }
+        deviceWatch = Task { [weak self, sink, log] in
             try? await Task.sleep(for: .seconds(5))
-            guard await !sink.isDevicePresent() else { return }
-            log.notice("camera device not visible after the extension update; relaunching")
-            self?.onDeviceLostAfterReplace?()
+            guard let self else { return }
+            defer { deviceWatch = nil }
+            guard extensionInfo == .enabled, await !sink.isDevicePresent() else { return }
+            let last = UserDefaults.standard.object(forKey: Self.relaunchKey) as? Date ?? .distantPast
+            if Date().timeIntervalSince(last) > 600, let relaunch = onDeviceNotVisible {
+                UserDefaults.standard.set(Date(), forKey: Self.relaunchKey)
+                log.notice("camera extension enabled but its device isn't visible here; relaunching")
+                relaunch()
+            } else {
+                log.notice("camera device still not visible; offering a manual restart")
+                deviceStuck = true
+            }
         }
+    }
+
+    /// The "Restart MemeCam" fix in the health check.
+    func relaunchApp() {
+        UserDefaults.standard.set(Date(), forKey: Self.relaunchKey)
+        onDeviceNotVisible?()
     }
 
     private func recompute() {
@@ -323,6 +348,7 @@ final class VirtualCameraController {
                 switch extensionInfo {
                 case .enabled:
                     next = .connecting // device shows up a moment after activation
+                    watchForMissingDevice()
                 case .awaitingApproval:
                     next = .awaitingApproval
                 case .notFound:

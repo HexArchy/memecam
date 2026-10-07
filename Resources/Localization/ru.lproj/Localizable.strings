@@ -382,7 +382,6 @@
 "Stop the test (Esc)" = "Остановить тест (Esc)";
 "Surprised" = "Удивление";
 "Switch Camera" = "Сменить камеру";
-"Switch MemeCam on in Camera Extensions." = "Включи MemeCam в «Расширениях камеры».";
 "System" = "Как в системе";
 "Teach MemeCam your neutral face for sharper reactions." = "Покажи MemeCam своё нейтральное лицо — реакции станут точнее.";
 "Test Pattern On" = "Тестовая картинка";
@@ -500,3 +499,5 @@
 "Teaching · %lld of %lld" = "Обучение · %lld из %lld";
 "Use what MemeCam learned" = "Использовать то, чему MemeCam научился";
 "Your Face" = "Твоё лицо";
+"Restart MemeCam" = "Перезапустить MemeCam";
+"macOS hasn't shown it to MemeCam yet — restart MemeCam. Still missing? Switch it on in Camera Extensions." = "macOS ещё не показал её MemeCam — перезапусти MemeCam. Всё ещё нет? Включи её в «Расширениях камеры».";

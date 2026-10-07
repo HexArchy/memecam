@@ -382,7 +382,6 @@
 "Stop the test (Esc)" = "Stop the test (Esc)";
 "Surprised" = "Surprised";
 "Switch Camera" = "Switch Camera";
-"Switch MemeCam on in Camera Extensions." = "Switch MemeCam on in Camera Extensions.";
 "System" = "System";
 "Teach MemeCam your neutral face for sharper reactions." = "Teach MemeCam your neutral face for sharper reactions.";
 "Test Pattern On" = "Test Pattern On";
@@ -500,3 +499,5 @@
 "Teaching · %lld of %lld" = "Teaching · %lld of %lld";
 "Use what MemeCam learned" = "Use what MemeCam learned";
 "Your Face" = "Your Face";
+"Restart MemeCam" = "Restart MemeCam";
+"macOS hasn't shown it to MemeCam yet — restart MemeCam. Still missing? Switch it on in Camera Extensions." = "macOS hasn't shown it to MemeCam yet — restart MemeCam. Still missing? Switch it on in Camera Extensions.";

@@ -21,7 +21,7 @@ public enum VirtualCameraChecklist {
     }
 
     public enum Fix: Sendable, Equatable {
-        case install, openSettings, startCamera, retry
+        case install, openSettings, startCamera, retry, relaunch
     }
 
     public enum Kind: Sendable, Equatable, CaseIterable {
@@ -38,9 +38,12 @@ public enum VirtualCameraChecklist {
         public var testPattern: Bool
         /// Apps reading the camera; nil when unknown (device missing, older extension).
         public var clients: Int?
+        /// The extension is enabled but the device has stayed invisible to MemeCam for a while.
+        public var deviceStuck: Bool
 
         public init(extensionStatus: ExtensionStatus, deviceVisible: Bool, fps: Double, cameraRunning: Bool,
-                    testPattern: Bool, clients: Int?) {
+                    testPattern: Bool, clients: Int?, deviceStuck: Bool = true) {
+            self.deviceStuck = deviceStuck
             self.extensionStatus = extensionStatus
             self.deviceVisible = deviceVisible
             self.fps = fps
@@ -79,8 +82,10 @@ public enum VirtualCameraChecklist {
         if i.deviceVisible {
             device = Item(.deviceVisible, .ok)
         } else if ext.status == .ok {
-            // Enabled but no device: usually switched off in Camera Extensions, or still starting.
-            device = Item(.deviceVisible, .warning, fix: .openSettings)
+            // Enabled but no device: still starting, or macOS didn't hand the new device to this process
+            // (after installing / updating the extension only a relaunch helps), or switched off in Camera
+            // Extensions. A relaunch fixes the common case; the detail text mentions the setting.
+            device = i.deviceStuck ? Item(.deviceVisible, .warning, fix: .relaunch) : Item(.deviceVisible, .pending)
         } else {
             device = Item(.deviceVisible, .pending)
         }

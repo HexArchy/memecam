@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.2 — 2026-10-07
+
+- Fix: on a Mac where the camera extension had just been installed and approved, the *MemeCam* camera could
+  stay invisible to the app (“Connecting…”, “Open System Settings” although everything was on) until MemeCam
+  was restarted — macOS doesn't hand a newly installed camera to the process that installed it. MemeCam now
+  relaunches itself once when the extension is on but its camera stays missing for 5 s, and otherwise the
+  health check offers *Restart MemeCam*.
+
 ## v1.2.1 — 2026-10-07
 
 - Fix: the menu bar popover was cut off on the left in Russian — the layout picker's long titles made the

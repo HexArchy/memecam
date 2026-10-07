@@ -107,7 +107,7 @@ private func check(_ ext: VirtualCameraChecklist.ExtensionStatus = .enabled, dev
 
     let disabled = check(.enabled, device: false, clients: nil)
     #expect(disabled[0].status == .ok)
-    #expect(disabled[1] == .init(.deviceVisible, .warning, fix: .openSettings))
+    #expect(disabled[1] == .init(.deviceVisible, .warning, fix: .relaunch))
 
     #expect(check(.failed, device: false, clients: nil)[0].fix == .retry)
 }

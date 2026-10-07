@@ -16,7 +16,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_ID="com.hexarch.memecam"
 EXT_ID="com.hexarch.memecam.camera-extension"
-SHORT_VERSION="${MEMECAM_VERSION:-1.2.1}"
+SHORT_VERSION="${MEMECAM_VERSION:-1.2.2}"
 # The updater compares this with GitHub tags: it must be a real X.Y.Z.
 [[ "$SHORT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "error: bad version '$SHORT_VERSION'" >&2; exit 1; }
 # Monotonic, period-separated integers: sysextd replaces the extension only when this grows.
