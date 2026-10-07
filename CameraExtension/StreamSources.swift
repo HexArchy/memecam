@@ -84,15 +84,26 @@ final class SinkStreamSource: NSObject, CMIOExtensionStreamSource, @unchecked Se
     /// signed ad hoc or run with `swift run` would fail it).
     func authorizedToStartStream(for client: CMIOExtensionClient) -> Bool {
         let signingID = client.signingID, pid = client.pid
-        guard SinkClientPolicy.isAllowed(signingID: signingID, team: SinkClientPolicy.ownTeam) else {
-            Self.log.error("sink client rejected: signingID=\(signingID ?? "nil", privacy: .public) pid=\(pid)")
-            return false
-        }
-        if signingID == nil {
-            let check = SinkClientPolicy.checkCode(pid: pid)
-            Self.log.notice("sink client without signingID allowed, pid=\(pid) code check: \(String(describing: check), privacy: .public)")
+        // Measured on macOS 26.6: development hosts report nil, Developer ID (release) hosts report the
+        // literal "unknown". Only a real identifier can be trusted as-is; otherwise verify the process'
+        // code signature directly.
+        if let signingID, signingID != "unknown" {
+            guard SinkClientPolicy.isAllowed(signingID: signingID, team: SinkClientPolicy.ownTeam) else {
+                Self.log.error("sink client rejected: signingID=\(signingID, privacy: .public) pid=\(pid)")
+                return false
+            }
+            Self.log.notice("sink client allowed: signingID=\(signingID, privacy: .public) pid=\(pid)")
         } else {
-            Self.log.notice("sink client allowed: signingID=\(signingID ?? "", privacy: .public) pid=\(pid)")
+            switch SinkClientPolicy.checkCode(pid: pid) {
+            case .valid:
+                Self.log.notice("sink client allowed by code signature, pid=\(pid)")
+            case .rejected:
+                Self.log.error("sink client rejected by code signature: signingID=\(signingID ?? "nil", privacy: .public) pid=\(pid)")
+                return false
+            case .unknown(let status):
+                // Can't verify (e.g. unsigned dev build): keep the camera working, but leave a trace.
+                Self.log.notice("sink client allowed unverified (\(status)): signingID=\(signingID ?? "nil", privacy: .public) pid=\(pid)")
+            }
         }
         pendingClient.withLock { self.client = client }
         return true
