@@ -39,32 +39,49 @@ struct Meme: Identifiable, Hashable, Sendable {
 }
 
 /// Decoded meme frames, ready for Core Image compositing. Static images have one frame.
+/// Immutable after init, hence safe to share between the pipeline queues.
 final class AnimatedImage: @unchecked Sendable {
+    /// Longer animations are subsampled evenly (timing kept) so one huge GIF can't take hundreds of MB:
+    /// 120 frames at 540 px are at most ~140 MB, typical memes far less.
+    static let maxFrames = 120
+    /// Source frames whose delays are read at all; beyond this the GIF is treated as truncated.
+    private static let maxSourceFrames = 5_000
+
     let frames: [CGImage]
     /// Cumulative end time of each frame, seconds.
     private let ends: [Double]
     let duration: Double
+    /// Estimated decoded size (width × height × 4 bytes per frame), used by the cache's byte budget.
+    let byteCost: Int
 
     init?(url: URL, maxPixelSize: Int = 540) {
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
-        let count = CGImageSourceGetCount(src)
+        let count = min(CGImageSourceGetCount(src), Self.maxSourceFrames)
         let opts: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceShouldCacheImmediately: true,
         ]
-        var frames: [CGImage] = [], ends: [Double] = [], t = 0.0
-        for i in 0..<min(count, 400) {
-            guard let img = CGImageSourceCreateThumbnailAtIndex(src, i, opts as CFDictionary) else { continue }
+        // Reading delays is cheap (metadata only); only the picked frames are decoded.
+        let picks = FrameSampling.plan(delays: (0..<count).map { Self.delay(src, $0) }, maxFrames: Self.maxFrames)
+        var frames: [CGImage] = [], ends: [Double] = [], t = 0.0, bytes = 0
+        for pick in picks {
+            t += pick.duration
+            guard let img = CGImageSourceCreateThumbnailAtIndex(src, pick.index, opts as CFDictionary) else {
+                // Undecodable frame: the previous one stays up for its time instead.
+                if !ends.isEmpty { ends[ends.count - 1] = t }
+                continue
+            }
             frames.append(img)
-            t += Self.delay(src, i)
             ends.append(t)
+            bytes += img.width * img.height * 4
         }
         guard !frames.isEmpty else { return nil }
         self.frames = frames
         self.ends = ends
         self.duration = t
+        self.byteCost = bytes
     }
 
     func frame(at time: Double) -> CGImage {
@@ -110,10 +127,11 @@ final class MemeLibrary: @unchecked Sendable {
     private var user = UserManifest()
     private var all: [Meme] = []
     private var byReaction: [Reaction: [Meme]] = [:]
-    private var cache: [String: AnimatedImage] = [:]
-    private var cacheOrder: [String] = []
+    /// Decoded memes by id, bounded by bytes (8 GB Macs): a few large GIFs or many small stills.
+    private var cache = CostLRUCache<String, AnimatedImage>(budget: MemeLibrary.cacheBudgetBytes)
     private var lastPicked: [Reaction: String] = [:]
 
+    static let cacheBudgetBytes = 150 * 1024 * 1024
     static let supportedTypes = ["gif", "png", "jpg", "jpeg", "heic", "webp", "tiff", "bmp"]
 
     var memes: [Meme] { lock.withLock { all } }
@@ -132,7 +150,9 @@ final class MemeLibrary: @unchecked Sendable {
             }
         }
         if let data = try? Data(contentsOf: userDirectory.appending(path: "user.json")),
-           let manifest = try? JSONDecoder().decode(UserManifest.self, from: data) {
+           var manifest = try? JSONDecoder().decode(UserManifest.self, from: data) {
+            // A tampered or corrupted manifest must never point outside the library (see `userFileURL`).
+            manifest.added.removeAll { !LibraryPaths.isSafeFileName($0.file) }
             user = manifest
         }
         rebuild()
@@ -158,11 +178,19 @@ final class MemeLibrary: @unchecked Sendable {
         return memes.first { $0.id == "user/\(name)" }!
     }
 
+    /// The file of a user meme, or nil unless it is a plain file name that resolves inside `userDirectory`.
+    /// Every file operation on user memes goes through this, so nothing outside the library is touched.
+    private func userFileURL(_ name: String) -> URL? {
+        guard LibraryPaths.isSafeFileName(name) else { return nil }
+        let url = userDirectory.appending(path: name)
+        return LibraryPaths.isContained(url, in: userDirectory) ? url : nil
+    }
+
     /// User memes are deleted; bundled ones are hidden (restorable).
     func remove(_ meme: Meme) throws {
         if meme.isCustom {
             let name = String(meme.id.dropFirst("user/".count))
-            try? FileManager.default.removeItem(at: userDirectory.appending(path: name))
+            if let url = userFileURL(name) { try? FileManager.default.removeItem(at: url) }
             lock.withLock { user.added.removeAll { $0.file == name } }
         } else {
             lock.withLock { if !user.hidden.contains(meme.id) { user.hidden.append(meme.id) } }
@@ -174,6 +202,7 @@ final class MemeLibrary: @unchecked Sendable {
     func reassign(_ meme: Meme, to reaction: Reaction) throws {
         if meme.isCustom {
             let name = String(meme.id.dropFirst("user/".count))
+            guard userFileURL(name) != nil else { return }
             lock.withLock {
                 if let i = user.added.firstIndex(where: { $0.file == name }) {
                     let e = user.added[i]
@@ -211,8 +240,8 @@ final class MemeLibrary: @unchecked Sendable {
         lock.withLock {
             let hidden = Set(user.hidden)
             let custom: [Meme] = user.added.compactMap { e in
-                guard let r = Reaction(rawValue: e.category) else { return nil }
-                return Meme(id: "user/\(e.file)", url: userDirectory.appending(path: e.file), reaction: r,
+                guard let r = Reaction(rawValue: e.category), let url = userFileURL(e.file) else { return nil }
+                return Meme(id: "user/\(e.file)", url: url, reaction: r,
                             animal: e.animal, title: e.title ?? r.title)
             }
             // User memes first: they are what people expect to see.
@@ -258,20 +287,16 @@ final class MemeLibrary: @unchecked Sendable {
     }
 
     func image(for meme: Meme) -> AnimatedImage? {
-        lock.lock()
-        if let hit = cache[meme.id] { lock.unlock(); return hit }
-        lock.unlock()
+        if let hit = lock.withLock({ cache.value(for: meme.id) }) { return hit }
+        // Decode outside the lock. Two concurrent decodes of one meme just replace each other's entry.
         guard let img = AnimatedImage(url: meme.url) else { return nil }
-        lock.lock(); defer { lock.unlock() }
-        cache[meme.id] = img
-        cacheOrder.append(meme.id)
-        if cacheOrder.count > 8 { cache[cacheOrder.removeFirst()] = nil } // bound memory (8 GB Mac)
+        lock.withLock { cache.insert(img, cost: img.byteCost, for: meme.id) }
         return img
     }
 
-    /// Non-blocking cache lookup.
+    /// Non-blocking cache lookup (a hit counts as a use for the LRU order).
     func cachedImage(for meme: Meme) -> AnimatedImage? {
-        lock.withLock { cache[meme.id] }
+        lock.withLock { cache.value(for: meme.id) }
     }
 
     /// Decodes a meme off the main thread ahead of time so switching is instant.

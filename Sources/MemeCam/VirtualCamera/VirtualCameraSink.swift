@@ -12,7 +12,9 @@ import os
 /// - Everything that talks to the CMIO server (discovery, start/stop, listeners) runs on `io`, a private
 ///   serial queue. A 0.5 s tick on `io` connects lazily once frames flow, retries with backoff
 ///   (0.5 s → 2 s, i.e. a 2 s poll while the device is missing), checks device presence every 2 s and
-///   reconnects if the sink stalls. A kCMIOHardwarePropertyDevices listener reacts to the extension
+///   reconnects if the sink stalls. When no frames were sent for 2 s (MemeCam's camera stopped) it
+///   disconnects, so the extension stops polling the sink and shows its placeholder; the next frame
+///   reconnects. A kCMIOHardwarePropertyDevices listener reacts to the extension
 ///   appearing / disappearing immediately.
 final class VirtualCameraSink: FrameSink, @unchecked Sendable {
     enum Status: Equatable, Sendable {
@@ -62,6 +64,17 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
             statusHandler = handler
             reported = nil
             checkPresence(force: true)
+        }
+    }
+
+    /// Whether some process has the MemeCam device running (another app reading it, or our own sink feed).
+    /// False when the device is missing. Talks to the CMIO server, so it hops to `io`.
+    func isDeviceRunningSomewhere() async -> Bool {
+        await withCheckedContinuation { continuation in
+            io.async {
+                let running = CMIO.findVirtualCamera().flatMap(CMIO.isRunningSomewhere) ?? false
+                continuation.resume(returning: running)
+            }
         }
     }
 
@@ -128,8 +141,13 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
         let (lastFrame, lastEnqueue) = hot.withLockUnchecked { ($0.lastFrameNanos, $0.lastEnqueueNanos) }
         let framesFlowing = lastFrame > 0 && now &- lastFrame < 2_000_000_000
         if stream != 0 {
-            // Frames arrive but nothing could be enqueued for 3 s: the extension stopped consuming. Reconnect.
-            if framesFlowing && now &- lastEnqueue > 3_000_000_000 {
+            if !framesFlowing {
+                // Camera stopped: release the sink so the extension idles on its placeholder instead of
+                // polling an empty queue. Connecting is lazy, so frames resuming reconnect on the next tick.
+                log.info("no frames for 2 s, disconnecting sink")
+                disconnect()
+            } else if now &- lastEnqueue > 3_000_000_000 {
+                // Frames arrive but nothing could be enqueued for 3 s: the extension stopped consuming. Reconnect.
                 log.notice("sink stalled, reconnecting")
                 disconnect()
                 scheduleRetry(now: now)

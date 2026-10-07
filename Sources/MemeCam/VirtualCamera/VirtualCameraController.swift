@@ -3,6 +3,7 @@ import CoreMedia
 import CoreVideo
 import Foundation
 import Observation
+import os
 import SystemExtensions
 
 enum VirtualCameraState: Equatable, Sendable {
@@ -59,6 +60,9 @@ final class VirtualCameraController {
     @ObservationIgnored private var activeObserver: (any NSObjectProtocol)?
 
     @ObservationIgnored private var replaceRequested = false
+    /// Waits for the virtual camera to be idle before replacing the extension after an app update.
+    @ObservationIgnored private var deferredReplace: Task<Void, Never>?
+    @ObservationIgnored private let log = Logger(subsystem: "com.hexarch.memecam", category: "virtual-camera")
 
     /// CFBundleVersion of the extension embedded in this app build.
     var bundledExtensionVersion: String? {
@@ -185,8 +189,7 @@ final class VirtualCameraController {
                 // re-activating replaces it (same team, no new approval needed).
                 if let bundled = bundledExtensionVersion, !replaceRequested,
                    !live.contains(where: { $0.isEnabled && $0.bundleVersion == bundled }) {
-                    replaceRequested = true
-                    install()
+                    replaceExtensionWhenIdle()
                 }
             } else if live.contains(where: \.isAwaitingUserApproval) {
                 extensionInfo = .awaitingApproval
@@ -203,6 +206,32 @@ final class VirtualCameraController {
             break
         }
         recompute()
+    }
+
+    /// Replacing the extension removes the "MemeCam" device for a moment, which would cut the video of a
+    /// call in progress. So wait until no process runs the device and retry every 30 s until then.
+    /// MemeCam's own sink feed also counts as running; it disconnects 2 s after the camera stops, so
+    /// with the camera on the replacement waits for the camera to stop (or the next launch).
+    private func replaceExtensionWhenIdle() {
+        guard deferredReplace == nil else { return }
+        deferredReplace = Task { [weak self, sink, log] in
+            while !Task.isCancelled {
+                if await !sink.isDeviceRunningSomewhere() {
+                    self?.performDeferredReplace()
+                    return
+                }
+                log.notice("virtual camera in use; deferring the extension update")
+                try? await Task.sleep(for: .seconds(30))
+            }
+        }
+    }
+
+    private func performDeferredReplace() {
+        deferredReplace = nil
+        guard !replaceRequested else { return }
+        replaceRequested = true
+        log.notice("replacing the camera extension with the bundled build")
+        install()
     }
 
     private func recompute() {

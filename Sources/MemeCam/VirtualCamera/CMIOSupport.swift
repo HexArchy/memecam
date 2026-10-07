@@ -69,6 +69,12 @@ enum CMIO {
         objectIDs(of: device, kCMIODevicePropertyStreams).first { uint32(of: $0, kCMIOStreamPropertyDirection) == 0 }
     }
 
+    /// kCMIODevicePropertyDeviceIsRunningSomewhere: some process (any app, including MemeCam's own sink
+    /// feed) has a stream of the device running. nil when the property can't be read.
+    static func isRunningSomewhere(_ device: CMIOObjectID) -> Bool? {
+        uint32(of: device, kCMIODevicePropertyDeviceIsRunningSomewhere).map { $0 != 0 }
+    }
+
     /// Calls `handler` on `queue` whenever the system device list changes. Returns a token for `removeListener`.
     static func addDevicesListener(queue: DispatchQueue, _ handler: @escaping @Sendable () -> Void) -> CMIOObjectPropertyListenerBlock? {
         var addr = address(kCMIOHardwarePropertyDevices)

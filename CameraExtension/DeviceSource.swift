@@ -25,6 +25,12 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource, @unchecked Sendab
     /// Incremented on every sink start/stop so stale consume callbacks stop their loop.
     private var sinkGeneration = 0
     private var timer: DispatchSourceTimer?
+    /// Delay before re-polling an empty sink queue: doubles from 5 ms up to one frame (33 ms) while the
+    /// app sends nothing, and drops back to 5 ms on the next buffer. Keeps an idle-but-connected sink from
+    /// waking the extension 200 times a second.
+    private var idleRetryMs = DeviceSource.minIdleRetryMs
+    private static let minIdleRetryMs = 5
+    private static let maxIdleRetryMs = 33
 
     private var latestAppFrame: CVPixelBuffer?
     private var latestAppFrameNanos: UInt64 = 0
@@ -92,6 +98,7 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource, @unchecked Sendab
         queue.async { [self] in
             sinkGeneration += 1
             sinkClient = client
+            idleRetryMs = Self.minIdleRetryMs
             log.info("sink started")
             consume(generation: sinkGeneration)
         }
@@ -117,6 +124,7 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource, @unchecked Sendab
             queue.async {
                 guard generation == self.sinkGeneration else { return }
                 if let buffer {
+                    self.idleRetryMs = Self.minIdleRetryMs
                     let now = HostClock.nowNanos()
                     self.sink.stream.notifyScheduledOutputChanged(
                         CMIOExtensionScheduledOutput(sequenceNumber: sequence, hostTimeInNanoseconds: now))
@@ -127,9 +135,11 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource, @unchecked Sendab
                     }
                     self.consume(generation: generation)
                 } else {
-                    // Nothing queued (or a transient error): back off briefly instead of spinning.
+                    // Nothing queued (or a transient error): back off instead of spinning.
                     if let error { self.log.debug("consume: \(error.localizedDescription)") }
-                    self.queue.asyncAfter(deadline: .now() + .milliseconds(5)) {
+                    let delay = self.idleRetryMs
+                    self.idleRetryMs = min(delay * 2, Self.maxIdleRetryMs)
+                    self.queue.asyncAfter(deadline: .now() + .milliseconds(delay)) {
                         self.consume(generation: generation)
                     }
                 }
