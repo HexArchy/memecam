@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- Fix: Inspector › *Language* › *Restart* no longer opens a second MemeCam while the first is still quitting;
+  a detached helper waits for the old process to exit, then opens the app again (gives up after 30 s if the quit
+  was cancelled).
+- Fix: in quiet mode, after a triggered meme hides, the reaction chip shows what is detected now instead of
+  the triggered reaction.
+- Russian onboarding: the “How do you want to start?” cards no longer hyphenate words mid-line, and their
+  footnotes fit on one line; the test-pattern description in the virtual-camera popover is no longer cut off.
+- Meme import: files over 50 MB or 100 megapixels are refused with a clear message; a failed save no longer
+  leaves an orphaned copy or a phantom entry; non-file drops are ignored.
+- Accessibility: trigger tiles say whether they fire a random or pinned meme, their hotkey, and why nothing
+  happens while paused or with the camera off; each health-check row reads its status (OK / Needs attention /
+  Failed / Checking) with its fix button right after it; the pause button reports its state; the trigger
+  palette's header reads without key symbols.
+- Dev: `MEMECAM_RENDER_UI=<dir> swift run MemeCam -AppleLanguages '(ru)'` (debug builds) renders every
+  onboarding step, the virtual-camera popover and the “Be right back” card to PNGs.
+
 ## v1.1.0 — 2026-10-07
 
 - **Virtual camera health check** — the virtual-camera pill popover is now a live checklist: extension

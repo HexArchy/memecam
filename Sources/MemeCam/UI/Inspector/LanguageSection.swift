@@ -1,4 +1,5 @@
 import AppKit
+import MemeCamCore
 import SwiftUI
 
 /// In-app language override. Writes `AppleLanguages` into MemeCam's own defaults domain only,
@@ -56,13 +57,23 @@ struct LanguageSection: View {
         }
     }
 
-    /// Opens a fresh instance of this bundle, then quits once it is on its way.
+    /// Quits, and a detached helper reopens this bundle once this process is gone, so two instances never
+    /// run side by side (they would fight over the camera, hotkeys and the virtual-camera sink).
     private func relaunch() {
-        let config = NSWorkspace.OpenConfiguration()
-        config.createsNewApplicationInstance = true
-        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: config) { _, error in
-            guard error == nil else { return }
-            Task { @MainActor in NSApp.terminate(nil) }
+        let p = Process()
+        p.executableURL = URL(filePath: "/bin/sh")
+        p.arguments = Relaunch.launcherArguments(pid: ProcessInfo.processInfo.processIdentifier,
+                                                 appPath: Bundle.main.bundleURL.path)
+        p.standardInput = FileHandle.nullDevice
+        p.standardOutput = FileHandle.nullDevice
+        p.standardError = FileHandle.nullDevice
+        do {
+            try p.run()
+            p.waitUntilExit() // returns at once: the launcher only forks the helper
+        } catch {
+            return
         }
+        guard p.terminationStatus == 0 else { return }
+        NSApp.terminate(nil)
     }
 }

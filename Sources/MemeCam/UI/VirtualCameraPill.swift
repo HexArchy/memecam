@@ -195,14 +195,31 @@ private struct HealthRow: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            // One element per check: "Frames flowing, Needs attention, The camera is off…" (the colour
+            // of the icon is the only other place the status shows).
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue([statusText, detail].filter { !$0.isEmpty }.joined(separator: ", "))
             Spacer(minLength: 4)
             if let fixTitle {
+                // Its own element, right after its check, so VoiceOver can press it.
                 Button(fixTitle, action: fix)
                     .controlSize(.small)
                     .buttonStyle(.borderedProminent)
+                    .accessibilityHint(title)
             }
         }
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var statusText: String {
+        switch item.status {
+        case .ok: String(localized: "OK")
+        case .warning: String(localized: "Needs attention")
+        case .failed: String(localized: "Failed")
+        case .pending: String(localized: "Checking")
+        case .info: ""
+        }
     }
 
     private var title: String {

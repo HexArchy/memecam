@@ -106,6 +106,7 @@ private struct PathCardLabel: View {
                 .foregroundStyle(.tertiary)
         }
         .multilineTextAlignment(.leading)
+        .noAutomaticHyphenation()
         .padding(18)
         .frame(width: 196, height: 230, alignment: .topLeading)
     }

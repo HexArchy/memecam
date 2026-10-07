@@ -37,6 +37,12 @@ extension View {
             .font(.callout)
     }
 
+    /// Narrow columns in Russian get auto-hyphenated mid-word ("библио-теку"). English line breaking
+    /// never hyphenates and works the same for Cyrillic, so whole words move to the next line instead.
+    func noAutomaticHyphenation() -> some View {
+        typesettingLanguage(Locale.Language(identifier: "en"))
+    }
+
     /// Staggered "rise in" used by every step: offset + fade, or fade only under Reduce Motion.
     func riseIn(_ visible: Bool, delay: Double, reduceMotion: Bool) -> some View {
         self

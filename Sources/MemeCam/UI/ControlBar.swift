@@ -60,6 +60,8 @@ private struct PauseButton: View {
         .help(paused ? "Resume memes (\u{2303}\u{2325}P, works in any app)"
                      : "Pause memes — camera only (\u{2303}\u{2325}P, works in any app)")
         .accessibilityLabel(paused ? "Resume memes" : "Pause memes")
+        .accessibilityValue(paused ? "Paused" : "On")
+        .accessibilityHint("Control Option P works in any app.")
     }
 }
 

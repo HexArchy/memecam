@@ -145,3 +145,12 @@ import Testing
         #expect(!ru.trimmingCharacters(in: .whitespaces).isEmpty, "\(meme["file"] ?? "?") has no title_ru")
     }
 }
+
+@Test func importLimitsRejectHugeFilesAndPixelBombs() {
+    #expect(ImportLimits.allows(fileBytes: 2_000_000, width: 498, height: 280))
+    #expect(ImportLimits.allows(fileBytes: nil, width: nil, height: nil))
+    #expect(ImportLimits.allows(fileBytes: ImportLimits.maxFileBytes, width: 10_000, height: 10_000))
+    #expect(!ImportLimits.allows(fileBytes: ImportLimits.maxFileBytes + 1, width: 100, height: 100))
+    #expect(!ImportLimits.allows(fileBytes: 1_000, width: 20_000, height: 20_000))
+    #expect(!ImportLimits.allows(fileBytes: 1_000, width: Int.max, height: 2))
+}

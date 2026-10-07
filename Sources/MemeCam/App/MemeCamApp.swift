@@ -6,6 +6,7 @@ enum Launcher {
     static func main() {
         #if DEBUG
         PopPreviewRenderer.runIfRequested() // dev tool: renders pop-up frames and exits
+        UISnapshotRenderer.runIfRequested() // dev tool: renders onboarding/popover snapshots and exits
         #endif
         MemeCamApp.main()
     }

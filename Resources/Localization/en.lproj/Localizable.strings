@@ -76,6 +76,7 @@
 "Check for Updates…" = "Check for Updates…";
 "Check Now" = "Check Now";
 "Check Your Camera" = "Check Your Camera";
+"Checking" = "Checking";
 "Checking the MemeCam virtual camera." = "Checking the MemeCam virtual camera.";
 "Checking…" = "Checking…";
 "Choose a Start" = "Choose a Start";
@@ -93,6 +94,7 @@
 "Connecting…" = "Connecting…";
 "Continue" = "Continue";
 "Control Option %lld" = "Control Option %lld";
+"Control Option P works in any app." = "Control Option P works in any app.";
 "Cooldown" = "Cooldown";
 "Copy Report" = "Copy Report";
 "Corner lift" = "Corner lift";
@@ -135,6 +137,7 @@
 "Facepalm" = "Facepalm";
 "Facial expressions" = "Facial expressions";
 "Fade" = "Fade";
+"Failed" = "Failed";
 "Fastest" = "Fastest";
 "Finish" = "Finish";
 "Finish setup and open the meme editor" = "Finish setup and open the meme editor";
@@ -166,6 +169,7 @@
 "High" = "High";
 "Hold it!" = "Hold it!";
 "Hold still…" = "Hold still…";
+"Hotkeys Control Option 1 to 9" = "Hotkeys Control Option 1 to 9";
 "Hotkeys ⌃⌥1 – ⌃⌥9" = "Hotkeys ⌃⌥1 – ⌃⌥9";
 "How do you want to start?" = "How do you want to start?";
 "Idle — saving power" = "Idle — saving power";
@@ -226,8 +230,10 @@
 "Memes" = "Memes";
 "Memes are paused (⌃⌥P)" = "Memes are paused (⌃⌥P)";
 "Memes are paused — the camera goes out plain. ⌃⌥P resumes." = "Memes are paused — the camera goes out plain. ⌃⌥P resumes.";
+"Memes are paused. Press Control Option P to resume." = "Memes are paused. Press Control Option P to resume.";
 "Memes On" = "Memes On";
 "Memes Paused" = "Memes Paused";
+"Memes paused. Control Option P resumes." = "Memes paused. Control Option P resumes.";
 "Memes paused. Current reaction: %@" = "Memes paused. Current reaction: %@";
 "Mirror camera" = "Mirror camera";
 "Mouth open" = "Mouth open";
@@ -235,6 +241,7 @@
 "Move MemeCam to the Applications folder and try again. %@" = "Move MemeCam to the Applications folder and try again. %@";
 "Move To" = "Move To";
 "Nailed it!" = "Nailed it!";
+"Needs attention" = "Needs attention";
 "Neutral" = "Neutral";
 "Next: Memes" = "Next: Memes";
 "No camera found." = "No camera found.";
@@ -280,6 +287,7 @@
 "Pick your memes" = "Pick your memes";
 "Picture" = "Picture";
 "Picture in Picture" = "Picture in Picture";
+"Pinned meme" = "Pinned meme";
 "Point up ☝️ with your index finger." = "Point up ☝️ with your index finger.";
 "Pointing" = "Pointing";
 "Pop" = "Pop";
@@ -298,6 +306,7 @@
 "Raise both eyebrows high, keep your mouth closed." = "Raise both eyebrows high, keep your mouth closed.";
 "Raise both open hands above your head 🙌." = "Raise both open hands above your head 🙌.";
 "Random %@" = "Random %@";
+"Random meme" = "Random meme";
 "Reaction" = "Reaction";
 "Reaction speed" = "Reaction speed";
 "Reactions" = "Reactions";
@@ -359,6 +368,7 @@
 "Start MemeCam" = "Start MemeCam";
 "Start or stop the camera" = "Start or stop the camera";
 "Start the camera to trigger %@" = "Start the camera to trigger %@";
+"Start the camera to trigger memes." = "Start the camera to trigger memes.";
 "Starting camera…" = "Starting camera…";
 "Starts by itself once your face is steady" = "Starts by itself once your face is steady";
 "Step" = "Step";
@@ -440,5 +450,6 @@
 "You're offline. Connect to the internet and try again." = "You're offline. Connect to the internet and try again.";
 "You're up to date" = "You're up to date";
 "Yours" = "Yours";
+"“%@” is too large for a meme (over 50 MB or 100 megapixels)." = "“%@” is too large for a meme (over 50 MB or 100 megapixels).";
 "“%@” isn't an image or GIF MemeCam can use." = "“%@” isn't an image or GIF MemeCam can use.";
 "⌃⌥P pauses from any app" = "⌃⌥P pauses from any app";

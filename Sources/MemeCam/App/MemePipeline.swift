@@ -446,6 +446,12 @@ final class MemePipeline: Sendable {
                 } else if s.forcedShown, !s.settings.quietMode {
                     // A triggered meme ran out: back to what the person is doing (quiet mode just hides it).
                     setReaction(s.stabilizer.current, confidence: est.confidence, now: now, in: &s)
+                } else if s.forcedShown, !s.visible {
+                    // Quiet mode: the triggered meme has gone away. The chip shows what is
+                    // detected now instead of the triggered reaction; nothing pops up for it.
+                    s.forcedShown = false
+                    s.reaction = s.stabilizer.current
+                    s.confidence = est.confidence
                 } else if est.reaction == s.reaction {
                     s.confidence = est.confidence
                 }

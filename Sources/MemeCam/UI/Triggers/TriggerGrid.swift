@@ -59,8 +59,22 @@ private struct TriggerTile: View {
         .contextMenu { TriggerSlotMenu(index: index, slot: slot) }
         .help(help)
         .accessibilityLabel(slot.memeID.flatMap { _ in meme?.title } ?? slot.reaction.title)
-        .accessibilityValue(showsHotKey ? "Control Option \(index + 1)" : "")
-        .accessibilityHint("Pops this meme up in your camera. Right-click to assign another.")
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint(accessibilityHint)
+    }
+
+    /// "Random meme, Control Option 1" — what fires and the hotkey (the pin and key cap are hidden).
+    private var accessibilityValue: String {
+        var parts = [slot.memeID == nil ? String(localized: "Random meme") : String(localized: "Pinned meme")]
+        if showsHotKey { parts.append(String(localized: "Control Option \(index + 1)")) }
+        return parts.joined(separator: ", ")
+    }
+
+    /// Says why nothing happens while the tile is dimmed, instead of a silent click.
+    private var accessibilityHint: String {
+        if model.memesPaused { return String(localized: "Memes are paused. Press Control Option P to resume.") }
+        if !enabled { return String(localized: "Start the camera to trigger memes.") }
+        return String(localized: "Pops this meme up in your camera. Right-click to assign another.")
     }
 
     private var help: String {

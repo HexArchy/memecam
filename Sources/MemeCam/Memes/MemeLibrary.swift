@@ -183,15 +183,31 @@ final class MemeLibrary: @unchecked Sendable {
         guard Self.supportedTypes.contains(ext),
               let src = CGImageSourceCreateWithURL(source as CFURL, nil), CGImageSourceGetCount(src) > 0
         else { throw LibraryError.notAnImage(source.lastPathComponent) }
+        let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any]
+        let bytes = try? source.resourceValues(forKeys: [.fileSizeKey]).fileSize
+        guard ImportLimits.allows(fileBytes: bytes, width: props?[kCGImagePropertyPixelWidth] as? Int,
+                                  height: props?[kCGImagePropertyPixelHeight] as? Int)
+        else { throw LibraryError.tooLarge(source.lastPathComponent) }
         try FileManager.default.createDirectory(at: userDirectory, withIntermediateDirectories: true)
         let name = "\(reaction.rawValue)-\(UUID().uuidString.prefix(8)).\(ext)"
-        try FileManager.default.copyItem(at: source, to: userDirectory.appending(path: name))
+        let copy = userDirectory.appending(path: name)
+        try FileManager.default.copyItem(at: source, to: copy)
         let title = source.deletingPathExtension().lastPathComponent
         lock.withLock {
             user.added.append(Entry(file: name, category: reaction.rawValue, animal: animal, title: title))
         }
-        try save()
-        return memes.first { $0.id == "user/\(name)" }!
+        do {
+            try save()
+        } catch {
+            // Don't keep an entry the manifest doesn't have, nor an orphaned copy.
+            lock.withLock { user.added.removeAll { $0.file == name } }
+            try? FileManager.default.removeItem(at: copy)
+            rebuild()
+            throw error
+        }
+        guard let meme = memes.first(where: { $0.id == "user/\(name)" })
+        else { throw LibraryError.notAnImage(source.lastPathComponent) }
+        return meme
     }
 
     /// The file of a user meme, or nil unless it is a plain file name that resolves inside `userDirectory`.
@@ -268,9 +284,11 @@ final class MemeLibrary: @unchecked Sendable {
 
     enum LibraryError: LocalizedError {
         case notAnImage(String)
+        case tooLarge(String)
         var errorDescription: String? {
             switch self {
             case .notAnImage(let name): String(localized: "“\(name)” isn't an image or GIF MemeCam can use.")
+            case .tooLarge(let name): String(localized: "“\(name)” is too large for a meme (over 50 MB or 100 megapixels).")
             }
         }
     }

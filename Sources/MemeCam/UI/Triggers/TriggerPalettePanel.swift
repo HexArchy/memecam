@@ -111,10 +111,12 @@ private struct TriggerPaletteView: View {
             HStack(spacing: 6) {
                 Image(systemName: "square.grid.3x3.fill")
                     .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
                 Text(statusText)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .accessibilityLabel(statusAccessibilityText)
                 Spacer(minLength: 4)
                 Button { model.paletteVisible = false } label: {
                     Image(systemName: "xmark")
@@ -142,5 +144,12 @@ private struct TriggerPaletteView: View {
         if model.memesPaused { return String(localized: "Paused · \u{2303}\u{2325}P") }
         if model.cameraState != .running { return String(localized: "Camera off") }
         return model.slotHotKeysEnabled ? "\u{2303}\u{2325}1–9" : String(localized: "Triggers")
+    }
+
+    /// `statusText` without key symbols, for VoiceOver.
+    private var statusAccessibilityText: String {
+        if model.memesPaused { return String(localized: "Memes paused. Control Option P resumes.") }
+        if model.cameraState != .running { return String(localized: "Camera off") }
+        return model.slotHotKeysEnabled ? String(localized: "Hotkeys Control Option 1 to 9") : String(localized: "Triggers")
     }
 }

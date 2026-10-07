@@ -71,11 +71,12 @@
 "Cancel Test" = "Отменить тест";
 "Cats" = "Котики";
 "Cats, hamsters or both. Peek at the library." = "Котики, хомяки или все сразу. Загляни в библиотеку.";
-"Change any time" = "Можно поменять в любой момент";
+"Change any time" = "Меняй когда угодно";
 "Check for updates automatically" = "Проверять обновления автоматически";
 "Check for Updates…" = "Проверить обновления…";
 "Check Now" = "Проверить";
 "Check Your Camera" = "Проверь камеру";
+"Checking" = "Проверяем";
 "Checking the MemeCam virtual camera." = "Проверяю виртуальную камеру MemeCam.";
 "Checking…" = "Проверка…";
 "Choose a Start" = "Выбор старта";
@@ -87,12 +88,13 @@
 "Close" = "Закрыть";
 "Close without starting the camera (Esc)" = "Закрыть, не включая камеру (Esc)";
 "Close your eyes gently and keep them closed." = "Мягко закрой глаза и не открывай.";
-"Colour bars and a clock instead of your camera — check that Discord or Telegram see MemeCam." = "Цветные полосы и часы вместо камеры — проверь, что Discord или Telegram видят MemeCam.";
+"Colour bars and a clock instead of your camera — check that Discord or Telegram see MemeCam." = "Полосы и часы вместо камеры — проверь, видят ли её Discord и Telegram.";
 "Confidence %lld percent" = "Уверенность %lld %%";
 "Connecting to the virtual camera." = "Подключаюсь к виртуальной камере.";
 "Connecting…" = "Подключение…";
 "Continue" = "Продолжить";
 "Control Option %lld" = "Control Option %lld";
+"Control Option P works in any app." = "Control Option P работает в любом приложении.";
 "Cooldown" = "Перерыв";
 "Copy Report" = "Скопировать отчёт";
 "Corner lift" = "Подъём уголков рта";
@@ -135,6 +137,7 @@
 "Facepalm" = "Фейспалм";
 "Facial expressions" = "Мимика";
 "Fade" = "Плавно";
+"Failed" = "Ошибка";
 "Fastest" = "Быстрее всего";
 "Finish" = "Завершить";
 "Finish setup and open the meme editor" = "Завершить настройку и открыть редактор мемов";
@@ -166,6 +169,7 @@
 "High" = "Высокая";
 "Hold it!" = "Держи!";
 "Hold still…" = "Не двигайся…";
+"Hotkeys Control Option 1 to 9" = "Горячие клавиши: Control Option от 1 до 9";
 "Hotkeys ⌃⌥1 – ⌃⌥9" = "Горячие клавиши ⌃⌥1 – ⌃⌥9";
 "How do you want to start?" = "С чего начнём?";
 "Idle — saving power" = "Простой — экономлю энергию";
@@ -226,8 +230,10 @@
 "Memes" = "Мемы";
 "Memes are paused (⌃⌥P)" = "Мемы на паузе (⌃⌥P)";
 "Memes are paused — the camera goes out plain. ⌃⌥P resumes." = "Мемы на паузе — в эфир идёт просто камера. ⌃⌥P — вернуть.";
+"Memes are paused. Press Control Option P to resume." = "Мемы на паузе. Нажми Control Option P, чтобы продолжить.";
 "Memes On" = "Мемы включены";
 "Memes Paused" = "Мемы на паузе";
+"Memes paused. Control Option P resumes." = "Мемы на паузе. Control Option P — продолжить.";
 "Memes paused. Current reaction: %@" = "Мемы на паузе. Текущая реакция: %@";
 "Mirror camera" = "Зеркалить камеру";
 "Mouth open" = "Открытость рта";
@@ -235,6 +241,7 @@
 "Move MemeCam to the Applications folder and try again. %@" = "Перенеси MemeCam в папку «Программы» и попробуй снова. %@";
 "Move To" = "Переместить в";
 "Nailed it!" = "Получилось!";
+"Needs attention" = "Требует внимания";
 "Neutral" = "Нейтрально";
 "Next: Memes" = "Дальше: мемы";
 "No camera found." = "Камера не найдена.";
@@ -280,6 +287,7 @@
 "Pick your memes" = "Выбери мемы";
 "Picture" = "Картинка";
 "Picture in Picture" = "Картинка в картинке";
+"Pinned meme" = "Закреплённый мем";
 "Point up ☝️ with your index finger." = "Покажи указательным пальцем вверх ☝️.";
 "Pointing" = "Указатель";
 "Pop" = "Прыжок";
@@ -298,6 +306,7 @@
 "Raise both eyebrows high, keep your mouth closed." = "Подними обе брови повыше, рот закрыт.";
 "Raise both open hands above your head 🙌." = "Подними обе раскрытые ладони над головой 🙌.";
 "Random %@" = "Случайный: %@";
+"Random meme" = "Случайный мем";
 "Reaction" = "Реакция";
 "Reaction speed" = "Скорость реакции";
 "Reactions" = "Реакции";
@@ -359,6 +368,7 @@
 "Start MemeCam" = "Запустить MemeCam";
 "Start or stop the camera" = "Включить или выключить камеру";
 "Start the camera to trigger %@" = "Включи камеру, чтобы показать %@";
+"Start the camera to trigger memes." = "Включи камеру, чтобы запускать мемы.";
 "Starting camera…" = "Включаю камеру…";
 "Starts by itself once your face is steady" = "Начнётся само, когда лицо замрёт";
 "Step" = "Шаг";
@@ -440,5 +450,6 @@
 "You're offline. Connect to the internet and try again." = "Нет интернета. Подключись и попробуй снова.";
 "You're up to date" = "У тебя последняя версия";
 "Yours" = "Твой";
+"“%@” is too large for a meme (over 50 MB or 100 megapixels)." = "«%@» слишком большой для мема (больше 50 МБ или 100 мегапикселей).";
 "“%@” isn't an image or GIF MemeCam can use." = "«%@» — не картинка и не GIF, которые понимает MemeCam.";
 "⌃⌥P pauses from any app" = "⌃⌥P ставит на паузу из любого приложения";

@@ -98,3 +98,18 @@ public struct CostLRUCache<Key: Hashable, Value> {
         order.append(key)
     }
 }
+
+/// Upper bounds for images added to the user library: a huge file or a decompression bomb must not
+/// stall the import or eat the memory budget (memes are decoded to ≤540 px anyway).
+public enum ImportLimits {
+    public static let maxFileBytes = 50 * 1024 * 1024
+    public static let maxPixels = 100_000_000
+
+    /// Unknown values (nil) pass; the decoder still bounds what it decodes.
+    public static func allows(fileBytes: Int?, width: Int?, height: Int?) -> Bool {
+        if let fileBytes, fileBytes > maxFileBytes { return false }
+        if let width, let height, width > 0, height > 0, width.multipliedReportingOverflow(by: height).overflow
+            || width * height > maxPixels { return false }
+        return true
+    }
+}

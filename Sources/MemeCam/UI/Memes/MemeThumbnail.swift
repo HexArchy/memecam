@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 extension URL {
     /// Image/GIF types the meme library accepts (drag & drop filter).
-    var isSupportedMemeFile: Bool { MemeLibrary.supportedTypes.contains(pathExtension.lowercased()) }
+    var isSupportedMemeFile: Bool { isFileURL && MemeLibrary.supportedTypes.contains(pathExtension.lowercased()) }
 }
 
 extension UTType {
