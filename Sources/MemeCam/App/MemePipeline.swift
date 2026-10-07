@@ -431,8 +431,10 @@ final class MemePipeline: Sendable {
                 }
                 let est = s.classifier.classify(obs)
                 s.metrics = est.metrics
+                // The stabilized detection, not `s.reaction`: a triggered "Nobody here" stays in `s.reaction`
+                // (quiet mode keeps it after hiding) and must not put up "Be right back" while someone is there.
                 if s.guided == nil,
-                   s.away.update(nobodyHere: s.reaction == .noFace, faceDetected: obs.face != nil, at: now) {
+                   s.away.update(nobodyHere: s.stabilizer.current == .noFace, faceDetected: obs.face != nil, at: now) {
                     s.awayChanged = now
                     Self.applyVisionRate(&s)
                     let away = s.away.isAway
