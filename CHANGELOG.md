@@ -5,6 +5,8 @@
 - Fix: the menu bar popover was cut off on the left in Russian — the layout picker's long titles made the
   content wider than the popover. The picker now shows icons (titles in the tooltip and for VoiceOver) next to
   a *Layout* label, the stop button reads *Turn Off*, and the pause hint wraps instead of being truncated.
+- Smoother scrolling in Settings, the meme library and the toolbar: they no longer re-render with every
+  10 Hz detection update (only the live reaction chip and the diagnostics rows follow it).
 
 ## v1.2.0 — 2026-10-07
 

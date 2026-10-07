@@ -149,7 +149,7 @@ struct SettingsForm: View {
 
             Section {
                 DisclosureGroup("Diagnostics", isExpanded: $debugExpanded) {
-                    DebugRows(status: model.status)
+                    LiveDebugRows()
                 }
             } header: {
                 Label("Debug", systemImage: "ladybug")
@@ -157,6 +157,12 @@ struct SettingsForm: View {
         }
         .formStyle(.grouped)
     }
+}
+
+/// Reads the 10 Hz status itself, so only the diagnostics rows re-render with it (and only when expanded).
+private struct LiveDebugRows: View {
+    @Environment(AppModel.self) private var model
+    var body: some View { DebugRows(status: model.status) }
 }
 
 private struct DebugRows: View {
@@ -197,7 +203,7 @@ private struct TeachingSection: View {
     var body: some View {
         @Bindable var model = model
         Section {
-            if model.isTeaching, let g = model.status.guided {
+            if model.isTeaching, let g = model.guided {
                 LabeledContent("Step") { Text("\(g.stepIndex + 1) of \(g.stepCount)").monospacedDigit() }
                 ProgressView(value: g.overallProgress)
                 Button("Stop Teaching", role: .cancel) { model.cancelAccuracyTest() }
@@ -265,7 +271,7 @@ private struct AccuracySection: View {
 
     var body: some View {
         Section {
-            if let g = model.status.guided {
+            if let g = model.guided {
                 LabeledContent("Step") { Text("\(g.stepIndex + 1) of \(g.stepCount)").monospacedDigit() }
                 ProgressView(value: g.overallProgress)
                 Button("Cancel Test", role: .cancel) { model.cancelAccuracyTest() }

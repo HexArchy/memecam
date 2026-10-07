@@ -101,6 +101,12 @@ final class AppModel {
     private(set) var status = PipelineStatus()
     /// Mirrors `status.away`, changing only when it flips (the menu bar icon must not re-render 10×/s).
     private(set) var isAway = false
+    // Slices of `status` that change rarely, each set only when it changes: views that need just these
+    // (inspector, toolbar, meme list, menu bar) don't re-render with every 10 Hz status update.
+    private(set) var liveReaction: Reaction = .noFace
+    private(set) var guided: GuidedSession.Snapshot?
+    private(set) var cameraIssue: String?
+    private(set) var cameraName = ""
     private(set) var isCalibrated = false
 
     /// Bumped whenever the meme library changes, so views re-read it.
@@ -118,7 +124,7 @@ final class AppModel {
     private(set) var lastRecordingURL: URL?
     /// The test just finished: the stage shows the result card until dismissed.
     var showEvaluationResult = false
-    var isGuidedSessionRunning: Bool { status.guided != nil }
+    var isGuidedSessionRunning: Bool { guided != nil }
 
     /// ~3 min interactive test: prompts every reaction (get ready → hold), records, then scores
     /// the detector on this user.
@@ -146,7 +152,7 @@ final class AppModel {
             pipeline.setPersonalModel(usePersonalModel ? personalModel : nil)
         }
     }
-    var isTeaching: Bool { status.guided?.teaching == true }
+    var isTeaching: Bool { guided?.teaching == true }
 
     /// Reactions a full lesson covers: everything that can pop up (switched on, has memes, detector on).
     var teachableReactions: [Reaction] {
@@ -371,6 +377,10 @@ final class AppModel {
                 guard let self else { return }
                 self.status = status
                 if status.away != self.isAway { self.isAway = status.away }
+                if status.reaction != self.liveReaction { self.liveReaction = status.reaction }
+                if status.guided != self.guided { self.guided = status.guided }
+                if status.cameraIssue != self.cameraIssue { self.cameraIssue = status.cameraIssue }
+                if status.cameraName != self.cameraName { self.cameraName = status.cameraName }
             }
         }
         pipeline.onRecordingFinished = { [weak self] rec, purpose in

@@ -35,10 +35,10 @@ struct CameraMenu: View {
         .accessibilityValue(currentName)
     }
 
-    private var hasIssue: Bool { model.cameraState == .running && model.status.cameraIssue != nil }
+    private var hasIssue: Bool { model.cameraState == .running && model.cameraIssue != nil }
 
     private var currentName: String {
-        if model.cameraState == .running, !model.status.cameraName.isEmpty { return model.status.cameraName }
+        if model.cameraState == .running, !model.cameraName.isEmpty { return model.cameraName }
         if let id = model.selectedCameraID, let camera = model.cameras.first(where: { $0.id == id }) {
             return camera.name
         }

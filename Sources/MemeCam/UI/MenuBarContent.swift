@@ -20,12 +20,12 @@ struct MenuBarContent: View {
 
             Divider()
 
-            Label(model.cameraState == .running ? model.status.reaction.title : String(localized: "Camera off"),
-                  systemImage: model.cameraState == .running ? model.status.reaction.symbol : "video.slash")
+            Label(model.cameraState == .running ? model.liveReaction.title : String(localized: "Camera off"),
+                  systemImage: model.cameraState == .running ? model.liveReaction.symbol : "video.slash")
                 .font(.headline)
                 .contentTransition(.symbolEffect(.replace))
 
-            if model.cameraState == .running, let issue = model.status.cameraIssue {
+            if model.cameraState == .running, let issue = model.cameraIssue {
                 Label(issue, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
                     .foregroundStyle(Design.secondaryText)

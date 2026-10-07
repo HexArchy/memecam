@@ -50,7 +50,7 @@ private struct MemeReactionGrid: View {
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(reactions) { reaction in
                     ReactionTile(reaction: reaction, memes: model.allMemes(for: reaction),
-                                 isLive: model.cameraState == .running && model.status.reaction == reaction,
+                                 isLive: model.cameraState == .running && model.liveReaction == reaction,
                                  isOff: model.disabledReactions.contains(reaction))
                 }
             }

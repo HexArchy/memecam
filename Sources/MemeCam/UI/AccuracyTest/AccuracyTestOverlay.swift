@@ -12,7 +12,7 @@ struct AccuracyTestOverlay: View {
 
     var body: some View {
         ZStack {
-            if let g = model.status.guided {
+            if let g = model.guided {
                 running(g)
                     .transition(.opacity)
             } else if model.teachingPhase == .training {
@@ -26,7 +26,7 @@ struct AccuracyTestOverlay: View {
                     .transition(.scale(scale: 0.96).combined(with: .opacity))
             }
         }
-        .animation(reduceMotion ? nil : .smooth, value: model.status.guided?.stepIndex)
+        .animation(reduceMotion ? nil : .smooth, value: model.guided?.stepIndex)
         .animation(reduceMotion ? nil : .smooth, value: model.showEvaluationResult)
         .animation(reduceMotion ? nil : .smooth, value: model.showTeachResult)
         .animation(reduceMotion ? nil : .smooth, value: model.teachingPhase)
@@ -40,7 +40,7 @@ struct AccuracyTestOverlay: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 14)
             Spacer()
-            PromptCard(snapshot: g, detected: model.status.reaction)
+            PromptCard(snapshot: g, detected: model.liveReaction)
                 .id(g.stepIndex) // fresh transition per reaction
                 .transition(reduceMotion ? .opacity : .asymmetric(
                     insertion: .move(edge: .trailing).combined(with: .opacity),

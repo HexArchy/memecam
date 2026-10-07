@@ -9,7 +9,7 @@ struct PreviewStage: View {
 
     var body: some View {
         let running = model.cameraState == .running
-        let issue = running ? model.cameraSwitchError ?? model.status.cameraIssue : nil
+        let issue = running ? model.cameraSwitchError ?? model.cameraIssue : nil
         ZStack {
             if running {
                 Color.black
@@ -28,9 +28,8 @@ struct PreviewStage: View {
         }
         .aspectRatio(Double(model.outputFormat.width) / Double(model.outputFormat.height), contentMode: .fit)
         .overlay(alignment: .topLeading) {
-            if running, issue == nil, model.status.guided == nil {
-                ReactionChip(reaction: model.status.reaction, confidence: model.status.confidence,
-                             paused: model.memesPaused, away: model.isAway)
+            if running, issue == nil, model.guided == nil {
+                LiveReactionChip()
                     .padding(14)
                     .transition(.opacity.combined(with: .scale(0.95, anchor: .topLeading)))
             }
@@ -78,4 +77,14 @@ extension EnvironmentValues {
 
 private struct PreviewSuspendedKey: EnvironmentKey {
     static let defaultValue = false
+}
+
+/// The only part of the stage that follows the 10 Hz status (confidence), so the stage itself doesn't re-render.
+private struct LiveReactionChip: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        ReactionChip(reaction: model.status.reaction, confidence: model.status.confidence,
+                     paused: model.memesPaused, away: model.isAway)
+    }
 }

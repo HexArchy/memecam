@@ -11,7 +11,7 @@ struct ReactionStrip: View {
 
     var body: some View {
         let running = model.cameraState == .running
-        let live: Reaction? = running ? model.status.reaction : nil
+        let live: Reaction? = running ? model.liveReaction : nil
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Reactions")
