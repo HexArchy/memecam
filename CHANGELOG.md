@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.2.0 — 2026-10-07
+
+- **Smarter recognition out of the box** — two learned face models now vote with the landmark rules:
+  MediaPipe Face Mesh V2 + Blendshapes V2 (52 expression coefficients) and HSEmotion (8 expressions). Each
+  expression component (mouth open, smile, eyes closed, brows, sad) is a weighted mean of the sources that saw
+  the frame; a confidently neutral face damps everything, so resting and talking trigger less. Sad faces that
+  the landmarks missed are now caught. ~1.8 ms per frame on the Neural Engine; without the models (still
+  loading) recognition works as before.
+- **Teach MemeCam your face** (⌘T, *Teach* in the control bar, a reaction's context menu, or Settings ›
+  *Your Face*) — show each reaction twice, a bit differently each time (~4 min). MemeCam learns your way of
+  doing them and uses it only where it really recognises you better (checked on a take it didn't learn from);
+  re-teach single reactions any time, or forget everything. Only face and hand points are kept, on this Mac.
+- **Virtual camera output format** — Settings › *Virtual Camera Output*: 720p or 1080p, 16:9, 4:3 or 1:1. Apps
+  see all six formats; one that asks for another size gets the picture cropped to fit.
+- Fix: after an update replaced the camera extension, the MemeCam camera vanished from the app until it was
+  relaunched; MemeCam now relaunches itself and restores the camera. The update no longer waits for MemeCam's
+  own feed, only for other apps using the camera.
+- Readability: button titles on the orange accent and secondary text have more contrast.
+- Menu bar: a paw icon, outlined when the camera is off and filled when it's live.
+
 ## v1.1.1 — 2026-10-07
 
 - Fix: Inspector › *Language* › *Restart* no longer opens a second MemeCam while the first is still quitting;

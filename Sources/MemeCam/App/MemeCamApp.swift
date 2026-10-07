@@ -7,6 +7,7 @@ enum Launcher {
         #if DEBUG
         PopPreviewRenderer.runIfRequested() // dev tool: renders pop-up frames and exits
         UISnapshotRenderer.runIfRequested() // dev tool: renders onboarding/popover snapshots and exits
+        FaceSignalsSelfTest.runIfRequested() // dev tool: runs the face models on photos and exits
         #endif
         MemeCamApp.main()
     }

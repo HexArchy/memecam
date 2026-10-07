@@ -64,6 +64,9 @@ public struct ReactionClassifier: Sendable {
 
     private static let calibrationFrames = 15
     private var samples: [FaceMetrics] = []
+    private var blendshapeSamples: [[Float]] = []
+    /// The user's neutral blendshapes (median of the calibration frames that had them).
+    public private(set) var blendshapeBaseline: [Float]?
     private var collecting = true
     private var collectingManual = false
     private var filter = FaceMetricsFilter()
@@ -83,6 +86,7 @@ public struct ReactionClassifier: Sendable {
     /// Re-measure the neutral face over the next frames (user pressed "Calibrate").
     public mutating func beginCalibration() {
         samples.removeAll()
+        blendshapeSamples.removeAll()
         collecting = true
         collectingManual = true
     }
@@ -133,7 +137,7 @@ public struct ReactionClassifier: Sendable {
 
         let headTurned = abs(face.yaw) > config.maxHeadTurn || abs(face.pitch) > config.maxHeadTurn
         if collecting, hands.isEmpty, !headTurned {
-            collectCalibrationSample(raw)
+            collectCalibrationSample(raw, blendshapes: frame.signals?.blendshapes)
         }
         if headTurned {
             // Turned away: profile landmarks distort mouth/eye ratios. Abstain (a taught hand pose may
@@ -144,7 +148,7 @@ public struct ReactionClassifier: Sendable {
         }
 
         let browsReliable = abs(face.yaw) <= config.maxHeadTurnForBrows && abs(face.pitch) <= config.maxHeadTurnForBrows
-        let rules = classifyExpression(metrics, browsReliable: browsReliable)
+        let rules = classifyExpression(metrics, browsReliable: browsReliable, signals: frame.signals)
         let estimate = wantsFeatures ? personalized(rules, metrics: metrics, faceBox: faceBox, seen: seen) : rules
         // Hysteresis follows what is shown; a taught gesture doesn't count as the shown expression.
         lastExpression = estimate.reaction.isGesture ? rules.reaction : estimate.reaction
@@ -168,15 +172,23 @@ public struct ReactionClassifier: Sendable {
         return ReactionEstimate(reaction: p.reaction, confidence: Double(p.votes) / Double(personal.k), metrics: metrics)
     }
 
-    private mutating func collectCalibrationSample(_ m: FaceMetrics) {
+    private mutating func collectCalibrationSample(_ m: FaceMetrics, blendshapes: [Float]?) {
         // Auto-calibration only accepts calm-looking frames; manual trusts the user.
         if !collectingManual {
             let b = FaceMetrics.typicalNeutral
             guard m.mouthOpen < b.mouthOpen + 0.12, abs(m.rollDegrees) < 12 else { return }
         }
         samples.append(m)
+        if let blendshapes { blendshapeSamples.append(blendshapes) }
         if samples.count >= Self.calibrationFrames, let med = FaceMetrics.median(samples) {
             baseline = med
+            if blendshapeSamples.count >= Self.calibrationFrames / 2 {
+                blendshapeBaseline = blendshapeSamples[0].indices.map { i in
+                    let v = blendshapeSamples.map { $0[i] }.sorted()
+                    return v[v.count / 2]
+                }
+            }
+            blendshapeSamples.removeAll()
             calibration = collectingManual ? .manual : .automatic
             collecting = false
             collectingManual = false
@@ -298,9 +310,13 @@ public struct ReactionClassifier: Sendable {
         return s
     }
 
-    private func classifyExpression(_ m: FaceMetrics, browsReliable: Bool = true) -> ReactionEstimate {
+    private func classifyExpression(_ m: FaceMetrics, browsReliable: Bool = true,
+                                    signals: FaceSignals? = nil) -> ReactionEstimate {
         var s = scores(m)
         if !browsReliable { s.brows = 0; s.sad = 0 }
+        // The learned face models vote on the same components (no-op without them).
+        s = FaceSignalFusion.fuse(s, signals: signals, blendshapeBaseline: blendshapeBaseline,
+                                  browsReliable: browsReliable)
         var candidates: [(Reaction, Double)] = []
         // Smiling widens the mouth, which lowers the (height / width) open ratio — so a laugh
         // needs only 70% of the open threshold when the smile is clear.

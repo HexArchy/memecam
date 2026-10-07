@@ -102,11 +102,27 @@ public struct FrameObservation: Sendable, Codable {
     public var timestamp: TimeInterval
     public var face: FaceLandmarks?
     public var hands: [HandPose]
+    /// Learned face signals for this frame (nil when the face models didn't run, e.g. older recordings).
+    public var signals: FaceSignals?
 
-    public init(timestamp: TimeInterval, face: FaceLandmarks?, hands: [HandPose]) {
+    public init(timestamp: TimeInterval, face: FaceLandmarks?, hands: [HandPose], signals: FaceSignals? = nil) {
         self.timestamp = timestamp
         self.face = face
         self.hands = hands
+        self.signals = signals
+    }
+}
+
+/// Outputs of the learned face models for one frame, kept raw so recordings can be re-scored later.
+public struct FaceSignals: Sendable, Codable, Equatable {
+    /// 52 ARKit-style blendshape coefficients 0…1 (MediaPipe Face Blendshapes V2, `Blendshape` order).
+    public var blendshapes: [Float]?
+    /// Expression probabilities (HSEmotion, `Emotion` order), summing to 1.
+    public var emotions: [Float]?
+
+    public init(blendshapes: [Float]? = nil, emotions: [Float]? = nil) {
+        self.blendshapes = blendshapes
+        self.emotions = emotions
     }
 }
 

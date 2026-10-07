@@ -18,7 +18,13 @@ Native Swift, Apple Vision on the Neural Engine, 30 FPS, no Python, no cloud.
   (subject-independent macro-F1 **0.987**), pure-Swift inference in microseconds, with geometric fallback.
 - **Personal face model** — expressions are measured relative to *your* neutral face (median auto-calibration),
   corrected for head pose, smoothed with a One Euro filter and debounced by a confidence-weighted vote.
-- **Virtual camera** — a CoreMediaIO camera extension fed through a zero-copy IOSurface sink stream.
+- **Learned face models that vote with the rules** — MediaPipe Face Mesh V2 + Blendshapes V2 (52 expression
+  coefficients) and HSEmotion (8 expressions, AffectNet), converted to Core ML, ~1.8 ms per frame on the Neural
+  Engine; fused with the landmark rules per expression component.
+- **Teach MemeCam your face** — show each reaction twice (~4 min, ⌘T); a gated k-NN over your own frames
+  overrides the rules only where it validated better (held-out: macro-F1 0.83 → 0.94, sad 0 → 0.71).
+- **Virtual camera** — a CoreMediaIO camera extension fed through a zero-copy IOSurface sink stream; 720p/1080p,
+  16:9, 4:3 or 1:1.
 - **Your memes** — drag any image or GIF onto a reaction to use it; hide built-ins; restore defaults.
 - **Accuracy test** — a guided 3-minute session records you and scores the detector per reaction (F1, latency, false switches).
 - **Apple-native UI** — Liquid Glass on macOS 26, onboarding, menu bar extra, keyboard shortcuts.
@@ -119,4 +125,5 @@ Gesture model training: [`Tools/gesture-training/`](Tools/gesture-training/READM
 ## Credits & licensing
 
 © 2026 Nikita Belyakov. All rights reserved. Third-party material — memes from Tenor (© their owners), the HaGRID v2
-dataset licence (non-commercial) and others — is listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+dataset licence (non-commercial), the MediaPipe face models (Apache-2.0), the HSEmotion expression model
+(AffectNet-trained, non-commercial) and others — is listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

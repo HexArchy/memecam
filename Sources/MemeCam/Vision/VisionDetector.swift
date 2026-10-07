@@ -37,6 +37,9 @@ final class VisionDetector: @unchecked Sendable {
         return r
     }()
 
+    /// Learned expression models on top of the landmarks (see `FaceSignalFusion`).
+    private let faceSignals = FaceSignalsDetector()
+
     private var frameIndex = 0
     private var handsVisible = false
     private var lastHands: [HandPose] = []
@@ -79,7 +82,8 @@ final class VisionDetector: @unchecked Sendable {
         } else if !detectHands {
             lastHands = []
         }
-        return FrameObservation(timestamp: timestamp, face: face, hands: lastHands)
+        let signals = face.flatMap { faceSignals.signals(pixelBuffer, face: $0) }
+        return FrameObservation(timestamp: timestamp, face: face, hands: lastHands, signals: signals)
     }
 
     // MARK: - Conversion to aspect space (x in [0, w/h], y in [0, 1], y up)
