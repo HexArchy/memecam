@@ -11,8 +11,16 @@ enum Launcher {
 }
 
 struct MemeCamApp: App {
-    @State private var model = AppModel()
+    @State private var model: AppModel
     @State private var ui = UIState()
+    /// Floating ⌃⌥0 palette; follows `model.paletteVisible`.
+    @State private var palette: TriggerPaletteController
+
+    init() {
+        let model = AppModel()
+        _model = State(initialValue: model)
+        _palette = State(initialValue: TriggerPaletteController(model: model))
+    }
 
     var body: some Scene {
         Window("MemeCam", id: "main") {

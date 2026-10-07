@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Trigger palette** — nine manual trigger slots (default: smile, laugh, surprised, thumbs up/down, heart,
+  facepalm, thinking, hands up). Global hotkeys **⌃⌥1 … ⌃⌥9** fire them while Discord/Zoom stays frontmost
+  (switch off in inspector › Triggers); a 3×3 grid in the menu bar extra; a small floating Liquid Glass palette
+  (**⌃⌥0**, *Window › Show Trigger Palette*) that never takes focus from the call, is draggable and remembers
+  its position. Right-click a tile → *Assign Reaction* or *Assign Meme* (one specific meme or random).
+  Triggered memes pop up with the chosen animation and hide after *Meme stays*; nothing fires while paused.
+- Fix: a pop-up whose meme wasn't decoded yet briefly showed the previously hidden meme; forced
+  “Neutral”/“Nobody here” memes now pop up and hide like the others in quiet mode.
 - **Sticker-style pop-ups** — in quiet mode the camera now stays full-frame and the meme floats over it as a
   card: *Pop* (default) springs in like a sticker with a white outline and soft shadow, *Slide* glides in from
   the nearest edge, *Fade* keeps the old crossfade. Pick it in inspector › Picture › *Pop-up style*;

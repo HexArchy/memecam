@@ -31,6 +31,8 @@ struct MenuBarContent: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            TriggersSection()
+
             Button { model.toggle() } label: {
                 Label(model.cameraState == .running ? "Stop Camera" : "Start Camera",
                       systemImage: model.cameraState == .running ? "stop.fill" : "video.fill")
@@ -67,6 +69,30 @@ struct MenuBarContent: View {
     private func openMainWindow() {
         openWindow(id: "main")
         NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+/// Manual triggers: the 3×3 slot grid and the floating palette toggle.
+private struct TriggersSection: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Triggers")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Button(model.paletteVisible ? "Hide Palette" : "Show Palette",
+                       systemImage: model.paletteVisible ? "rectangle.on.rectangle.slash" : "square.grid.3x3") {
+                    model.togglePalette()
+                }
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .help("Floating palette over other apps (\u{2303}\u{2325}0)")
+            }
+            TriggerGrid(tileSize: 80, spacing: 6)
+                .frame(maxWidth: .infinity)
+        }
     }
 }
 

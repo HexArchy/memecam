@@ -80,6 +80,21 @@ struct SettingsForm: View {
             }
 
             Section {
+                Toggle(isOn: $model.slotHotKeysEnabled) {
+                    Text("Hotkeys \u{2303}\u{2325}1 – \u{2303}\u{2325}9")
+                }
+                .help("Fire the nine trigger slots from any app, even while Discord or Zoom is in front.")
+                Toggle("Floating palette", isOn: $model.paletteVisible)
+                    .help("A small always-on-top grid of the trigger slots (\u{2303}\u{2325}0).")
+            } header: {
+                Label("Triggers", systemImage: "square.grid.3x3")
+            } footer: {
+                Text("Click a tile in the palette or the menu bar to pop its meme up. Right-click a tile to assign a reaction or one specific meme.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
                 Toggle("Stop camera when Mac locks", isOn: $model.stopCameraWhenLocked)
             } header: {
                 Label("Camera", systemImage: "web.camera")

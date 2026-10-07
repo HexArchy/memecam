@@ -85,6 +85,8 @@ final class MemePipeline: Sendable {
         var previousFrame: CGImage?
         var memeStart: TimeInterval = 0
         var forcedUntil: TimeInterval = 0
+        /// What's on screen was asked for by the user (palette, hotkey, preview), not detected.
+        var forcedShown = false
         /// Whether the meme is on screen (quiet mode hides it), and when that last changed.
         var visible = false
         var visibleChanged: TimeInterval = 0
@@ -312,7 +314,7 @@ final class MemePipeline: Sendable {
             if s.meme == nil, !s.settings.quietMode { setReaction(s.reaction, confidence: s.confidence, now: now, in: &s) }
             // Quiet mode: a meme pops up for `popDuration`, then the camera has the stage again
             // ("nobody here" stays while the person is away).
-            if s.settings.quietMode, s.visible, s.reaction != .noFace, now >= s.forcedUntil,
+            if s.settings.quietMode, s.visible, s.reaction != .noFace || s.forcedShown, now >= s.forcedUntil,
                now - s.shownAt > s.settings.popDuration {
                 Self.setVisible(false, now: now, in: &s)
             }
@@ -393,6 +395,9 @@ final class MemePipeline: Sendable {
                 guard now >= s.forcedUntil else { return }
                 if let changed = s.stabilizer.update(est.reaction, confidence: est.confidence, at: now) {
                     setReaction(changed, confidence: est.confidence, now: now, in: &s)
+                } else if s.forcedShown, !s.settings.quietMode {
+                    // A triggered meme ran out: back to what the person is doing (quiet mode just hides it).
+                    setReaction(s.stabilizer.current, confidence: est.confidence, now: now, in: &s)
                 } else if est.reaction == s.reaction {
                     s.confidence = est.confidence
                 }
@@ -410,7 +415,8 @@ final class MemePipeline: Sendable {
     private func setReaction(_ r: Reaction, confidence: Double, now: TimeInterval, in s: inout State,
                              meme: Meme? = nil, forced: Bool = false) {
         let quiet = s.settings.quietMode
-        if s.settings.paused || (quiet && r == .neutral && meme == nil) {
+        s.forcedShown = forced
+        if s.settings.paused || (quiet && r == .neutral && meme == nil && !forced) {
             // Paused: track the reaction, show nothing. Neutral = conversation: show nothing.
             s.reaction = r
             s.confidence = confidence
@@ -428,10 +434,12 @@ final class MemePipeline: Sendable {
             }
             if s.meme != nil { return }   // keep what's on screen
         }
+        let appearing = !s.visible && picked != nil
         Self.setVisible(picked != nil, now: now, in: &s)
         s.shownAt = now
         let t = now - s.memeStart
-        s.previousFrame = s.memeImage?.frame(at: t)
+        // Popping up from hidden: no crossfade from the meme that was hidden before.
+        s.previousFrame = appearing ? nil : s.memeImage?.frame(at: t)
         s.reaction = r
         s.confidence = confidence
         s.meme = picked
@@ -441,14 +449,18 @@ final class MemePipeline: Sendable {
             s.memeImage = img
             return
         }
-        // Cold decode off the hot path; keep showing the previous meme until it is ready.
+        // Cold decode off the hot path; keep showing the previous meme until it is ready. A pop-up from
+        // hidden shows nothing meanwhile (not the stale meme) and starts its animation once decoded.
+        if appearing { s.memeImage = nil }
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             let img = library.image(for: meme)
             state.withLock { s in
                 guard s.meme == meme else { return }
-                s.previousFrame = s.memeImage?.frame(at: CACurrentMediaTime() - s.memeStart)
+                let now = CACurrentMediaTime()
+                if s.memeImage == nil, s.visible { s.visibleChanged = now }
+                s.previousFrame = s.memeImage?.frame(at: now - s.memeStart)
                 s.memeImage = img
-                s.memeStart = CACurrentMediaTime()
+                s.memeStart = now
             }
         }
     }

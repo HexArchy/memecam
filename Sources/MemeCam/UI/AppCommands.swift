@@ -33,6 +33,11 @@ struct AppCommands: Commands {
                     .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")))
             }
         }
+        CommandGroup(before: .windowList) {
+            Button(model.paletteVisible ? "Hide Trigger Palette" : "Show Trigger Palette") { model.togglePalette() }
+                .keyboardShortcut("0", modifiers: [.control, .option]) // also a global hotkey
+            Divider()
+        }
         CommandGroup(after: .help) {
             Button("Show Onboarding\u{2026}") {
                 openWindow(id: "main")

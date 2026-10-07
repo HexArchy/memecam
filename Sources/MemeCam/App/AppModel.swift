@@ -53,6 +53,22 @@ final class AppModel {
     }
     /// Stop the camera while the screen is locked, resume on unlock if it was running.
     var stopCameraWhenLocked = true { didSet { persistAndPush() } }
+    /// The nine manual trigger slots (palette tiles, ⌃⌥1 … ⌃⌥9).
+    var triggerPalette: TriggerPalette = .default {
+        didSet { if !loading { defaults.set(triggerPalette.encoded(), forKey: "triggerPalette") } }
+    }
+    /// ⌃⌥1 … ⌃⌥9 fire the trigger slots from any app. Off frees the combinations for other apps.
+    var slotHotKeysEnabled = true {
+        didSet {
+            guard !loading, oldValue != slotHotKeysEnabled else { return }
+            defaults.set(slotHotKeysEnabled, forKey: "slotHotKeysEnabled")
+            updateSlotHotKeys()
+        }
+    }
+    /// The floating trigger palette is on screen (⌃⌥0). Restored at launch.
+    var paletteVisible = false {
+        didSet { if !loading { defaults.set(paletteVisible, forKey: "paletteVisible") } }
+    }
 
     // MARK: Live state (read-only for UI)
 
@@ -175,6 +191,7 @@ final class AppModel {
     private let pipeline = MemePipeline()
     private let defaults = UserDefaults.standard
     private let hotKeys = GlobalHotKeys()
+    @ObservationIgnored private var slotHotKeyTokens: [GlobalHotKeys.Token] = []
     private var loading = true
     private let log = Logger(subsystem: "com.hexarch.memecam", category: "app")
 
@@ -227,6 +244,8 @@ final class AppModel {
         virtualCamera.refresh()
         updater.start()
         hotKeys.register(.pauseMemes) { [weak self] in self?.togglePause() }
+        hotKeys.register(.togglePalette) { [weak self] in self?.togglePalette() }
+        updateSlotHotKeys()
         observeSystem()
         updatePower()
     }
@@ -250,6 +269,8 @@ final class AppModel {
 
     func togglePause() { memesPaused.toggle() }
 
+    func togglePalette() { paletteVisible.toggle() }
+
     func isEnabled(_ reaction: Reaction) -> Bool { !disabledReactions.contains(reaction) }
 
     func setEnabled(_ reaction: Reaction, _ enabled: Bool) {
@@ -262,11 +283,55 @@ final class AppModel {
         isCalibrated = true
     }
 
-    /// Show a specific reaction for 3 seconds (e.g. clicked in the gallery).
-    func trigger(_ reaction: Reaction) { pipeline.force(reaction) }
+    /// Show a specific reaction (e.g. clicked in the gallery). Does nothing while memes are paused.
+    func trigger(_ reaction: Reaction) {
+        guard !memesPaused else { return }
+        pipeline.force(reaction, seconds: forcedSeconds)
+    }
 
-    /// Show this exact meme for 3 seconds.
-    func trigger(meme: Meme) { pipeline.force(meme: meme) }
+    /// Show this exact meme. Does nothing while memes are paused.
+    func trigger(meme: Meme) {
+        guard !memesPaused else { return }
+        pipeline.force(meme: meme, seconds: forcedSeconds)
+    }
+
+    /// A trigger would show something now (camera running, memes not paused).
+    var canTrigger: Bool { cameraState == .running && !memesPaused }
+
+    /// Fires trigger slot `index` (palette tile or ⌃⌥1 … ⌃⌥9).
+    func fireSlot(_ index: Int) {
+        guard triggerPalette.slots.indices.contains(index) else { return }
+        let slot = triggerPalette[index]
+        log.info("trigger slot \(index + 1): \(slot.reaction.rawValue, privacy: .public)")
+        if let meme = specificMeme(for: slot) { trigger(meme: meme) } else { trigger(slot.reaction) }
+    }
+
+    func assignSlot(_ index: Int, _ slot: TriggerSlot) { triggerPalette.assign(slot, at: index) }
+
+    /// The slot's own meme while it still exists in the library (nil = random / removed).
+    func specificMeme(for slot: TriggerSlot) -> Meme? {
+        guard let id = slot.memeID else { return nil }
+        return allMemes(for: slot.reaction).first { $0.id == id }
+    }
+
+    /// Meme shown on the slot's tile: its own meme, else the reaction's first.
+    func thumbnailMeme(for slot: TriggerSlot) -> Meme? {
+        specificMeme(for: slot) ?? memes(for: slot.reaction).first ?? allMemes(for: slot.reaction).first
+    }
+
+    /// How long a triggered meme holds the stage: quiet mode's "Meme stays", else 3 s before detection takes over.
+    private var forcedSeconds: TimeInterval { quietMode ? popDuration : 3 }
+
+    private func updateSlotHotKeys() {
+        slotHotKeyTokens.forEach(hotKeys.unregister)
+        slotHotKeyTokens = []
+        guard slotHotKeysEnabled else { return }
+        for index in 0..<TriggerPalette.slotCount {
+            if let token = hotKeys.register(.triggerSlot(index), action: { [weak self] in self?.fireSlot(index) }) {
+                slotHotKeyTokens.append(token)
+            }
+        }
+    }
 
     /// Re-reads the camera list. Never clears the preference when the preferred camera is missing.
     func refreshCameras() {
@@ -563,5 +628,8 @@ final class AppModel {
         selectedCameraID = defaults.string(forKey: "cameraID")
         preferredCameraName = defaults.string(forKey: "cameraName")
         if defaults.object(forKey: "stopCameraWhenLocked") != nil { stopCameraWhenLocked = defaults.bool(forKey: "stopCameraWhenLocked") }
+        triggerPalette = TriggerPalette.decode(defaults.data(forKey: "triggerPalette"))
+        if defaults.object(forKey: "slotHotKeysEnabled") != nil { slotHotKeysEnabled = defaults.bool(forKey: "slotHotKeysEnabled") }
+        paletteVisible = defaults.bool(forKey: "paletteVisible")
     }
 }

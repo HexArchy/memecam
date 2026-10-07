@@ -36,6 +36,8 @@ drag MemeCam to **Applications** (required for the virtual camera) and open it.
 |---|---|
 | ⌘R | Start / stop camera |
 | ⌃⌥P | Pause / resume memes (global, works in any app) |
+| ⌃⌥1 … ⌃⌥9 | Fire trigger slot 1–9 (global; right-click a palette tile to reassign) |
+| ⌃⌥0 | Show / hide the floating trigger palette (global) |
 | ⌘K | Calibrate neutral face |
 | ⌘1 ⌘2 ⌘3 | Side by side · Picture in picture · Meme only |
 | ⌘I | Inspector |
