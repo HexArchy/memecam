@@ -36,7 +36,7 @@ RUN=0
 RELEASE=0
 # Path to an App Store Connect API env file (ASC_KEY_ID, ASC_ISSUER_ID, APPLE_TEAM_ID, ASC_KEY_PATH);
 # kept outside the repo in ~/.memecam-signing/config.
-ASC_ENV="$(grep -E '^ASC_ENV=' "$HOME/.memecam-signing/config" 2>/dev/null | cut -d= -f2-)"
+ASC_ENV="$(grep -E '^ASC_ENV=' "$HOME/.memecam-signing/config" 2>/dev/null | cut -d= -f2- || true)"
 for arg in "$@"; do
   case "$arg" in
     --install) INSTALL=1 ;;
