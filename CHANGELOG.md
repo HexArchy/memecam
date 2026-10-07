@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.1.1 — 2026-10-07
 
 - Fix: Inspector › *Language* › *Restart* no longer opens a second MemeCam while the first is still quitting;
   a detached helper waits for the old process to exit, then opens the app again (gives up after 30 s if the quit
