@@ -10,6 +10,11 @@ import os
 /// - A 30 fps timer runs while any source client is connected. If the app has not delivered a frame for
 ///   more than 0.5 s it emits the "paused" placeholder; if the app is live but slower than 30 fps it
 ///   re-sends the latest app frame, so clients always see a steady stream instead of a frozen frame.
+///
+/// Formats: the source offers every `OutputFormat` (720p/1080p × 16:9, 4:3, 1:1). The active one is what a
+/// client explicitly picked, otherwise the size the app currently renders (the user's setting in MemeCam).
+/// Frames always go out at the active format's size: app frames of another size are aspect-filled by
+/// `FrameScaler`, so a client that asked for 4:3 never receives 16:9 buffers.
 final class DeviceSource: NSObject, CMIOExtensionDeviceSource, @unchecked Sendable {
     // Invariant: everything below `queue` is only touched on `queue` (serial), except the immutable
     // `device`, `source`, `sink` set in init.
@@ -53,22 +58,35 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource, @unchecked Sendab
     private var latestAppFrameNanos: UInt64 = 0
     private var lastSentNanos: UInt64 = 0
     private var formatDescription: CMVideoFormatDescription?
-    private lazy var placeholder: CVPixelBuffer? = PlaceholderRenderer.render(
-        width: Int(Config.width), height: Int(Config.height))
+    private var placeholders: [OutputFormat: CVPixelBuffer] = [:]
+    private let scaler = FrameScaler()
+    /// Last app frame scaled for the active format, reused when the pacing timer re-sends it.
+    private var lastScaled: (source: CVPixelBuffer, output: CVPixelBuffer)?
+
+    /// The size the app renders (from its latest frame) and the format a client asked for, if any.
+    private var appFormat = OutputFormat.default { didSet { formatInputsChanged() } }
+    private var clientFormat: OutputFormat? { didSet { formatInputsChanged() } }
+    private var activeFormat: OutputFormat { clientFormat ?? appFormat }
+    /// Copy of `activeFormat` for `streamProperties`, which CMIO calls on its own queue.
+    private let publishedFormat = OSAllocatedUnfairLock(initialState: OutputFormat.default)
+
+    private static func makeStreamFormats() -> [CMIOExtensionStreamFormat] { OutputFormat.all.map { f in
+        var desc: CMFormatDescription?
+        CMVideoFormatDescriptionCreate(allocator: kCFAllocatorDefault, codecType: kCVPixelFormatType_32BGRA,
+                                       width: Int32(f.width), height: Int32(f.height), extensions: nil,
+                                       formatDescriptionOut: &desc)
+        guard let desc else { fatalError("MemeCam: cannot create format description") }
+        return CMIOExtensionStreamFormat(formatDescription: desc, maxFrameDuration: Config.frameDuration,
+                                         minFrameDuration: Config.frameDuration, validFrameDurations: nil)
+    } }
 
     override init() {
         super.init()
-        var desc: CMFormatDescription?
-        CMVideoFormatDescriptionCreate(allocator: kCFAllocatorDefault, codecType: kCVPixelFormatType_32BGRA,
-                                       width: Config.width, height: Config.height, extensions: nil,
-                                       formatDescriptionOut: &desc)
-        guard let desc else { fatalError("MemeCam: cannot create format description") }
-        let format = CMIOExtensionStreamFormat(formatDescription: desc, maxFrameDuration: Config.frameDuration,
-                                               minFrameDuration: Config.frameDuration, validFrameDurations: nil)
         device = CMIOExtensionDevice(localizedName: Config.deviceName, deviceID: Config.deviceID,
                                      legacyDeviceID: Config.deviceUID, source: self)
-        source = SourceStreamSource(format: format, owner: self)
-        sink = SinkStreamSource(format: format, owner: self)
+        let formats = Self.makeStreamFormats()
+        source = SourceStreamSource(formats: formats, owner: self)
+        sink = SinkStreamSource(formats: formats, owner: self)
         do {
             try device.addStream(source.stream)
             try device.addStream(sink.stream)
@@ -108,8 +126,44 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource, @unchecked Sendab
         queue.async { [self] in
             sourceClients = max(0, sourceClients - 1)
             log.info("source stopped, clients=\(self.sourceClients)")
-            if sourceClients == 0 { stopTimer() }
+            if sourceClients == 0 {
+                stopTimer()
+                clientFormat = nil // the next client starts from the app's format again
+            }
         }
+    }
+
+    // MARK: Formats
+
+    /// Index of the active format (CMIO's queue).
+    var activeFormatIndex: Int { publishedFormat.withLock { $0.index } }
+
+    /// A client set the source stream's active format (CMIO's queue).
+    func clientSelectedFormat(index: Int) {
+        guard OutputFormat.all.indices.contains(index) else { return }
+        let format = OutputFormat.all[index]
+        queue.async { [self] in
+            log.info("client picked \(format.dimensions, privacy: .public)")
+            clientFormat = format
+        }
+    }
+
+    private func formatInputsChanged() {
+        let active = activeFormat
+        guard publishedFormat.withLock({ old in
+            defer { old = active }
+            return old != active
+        }) else { return }
+        log.info("active format \(active.dimensions, privacy: .public)")
+        lastScaled = nil
+        source.stream.notifyPropertiesChanged([.streamActiveFormatIndex: CMIOExtensionPropertyState<AnyObject>(value: active.index as NSNumber)])
+    }
+
+    private func placeholder(for format: OutputFormat) -> CVPixelBuffer? {
+        if let hit = placeholders[format] { return hit }
+        let made = PlaceholderRenderer.render(width: format.width, height: format.height)
+        placeholders[format] = made
+        return made
     }
 
     func sinkDidStart(client: CMIOExtensionClient) {
@@ -149,6 +203,10 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource, @unchecked Sendab
                     self.sink.stream.notifyScheduledOutputChanged(
                         CMIOExtensionScheduledOutput(sequenceNumber: sequence, hostTimeInNanoseconds: now))
                     if let pixels = CMSampleBufferGetImageBuffer(buffer) {
+                        if let f = OutputFormat.matching(width: CVPixelBufferGetWidth(pixels),
+                                                         height: CVPixelBufferGetHeight(pixels)), f != self.appFormat {
+                            self.appFormat = f
+                        }
                         self.latestAppFrame = pixels
                         self.latestAppFrameNanos = now
                         self.emit(pixels, at: now)
@@ -192,13 +250,14 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource, @unchecked Sendab
             if now &- lastSentNanos >= interval + interval / 3 { emit(frame, at: now) }
         } else {
             latestAppFrame = nil
-            if let placeholder { emit(placeholder, at: now) }
+            lastScaled = nil
+            if let placeholder = placeholder(for: activeFormat) { emit(placeholder, at: now) }
         }
     }
 
     /// Wraps the pixel buffer into a fresh sample buffer stamped with the current host time and sends it.
-    private func emit(_ pixels: CVPixelBuffer, at now: UInt64) {
-        guard sourceClients > 0 else { return }
+    private func emit(_ frame: CVPixelBuffer, at now: UInt64) {
+        guard sourceClients > 0, let pixels = fitted(frame) else { return }
         if formatDescription == nil || !CMVideoFormatDescriptionMatchesImageBuffer(formatDescription!, imageBuffer: pixels) {
             formatDescription = nil
             CMVideoFormatDescriptionCreateForImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: pixels,
@@ -215,5 +274,15 @@ final class DeviceSource: NSObject, CMIOExtensionDeviceSource, @unchecked Sendab
         guard status == noErr, let sample else { return }
         source.stream.send(sample, discontinuity: [], hostTimeInNanoseconds: now)
         lastSentNanos = now
+    }
+
+    /// `frame` at the active format's size: as is when it matches, otherwise aspect-filled (cached per frame).
+    private func fitted(_ frame: CVPixelBuffer) -> CVPixelBuffer? {
+        let format = activeFormat
+        if CVPixelBufferGetWidth(frame) == format.width, CVPixelBufferGetHeight(frame) == format.height { return frame }
+        if let last = lastScaled, last.source === frame { return last.output }
+        guard let out = scaler.scale(frame, to: format) else { return nil }
+        lastScaled = (frame, out)
+        return out
     }
 }

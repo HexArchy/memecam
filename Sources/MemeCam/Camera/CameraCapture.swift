@@ -32,6 +32,8 @@ final class CameraCapture: NSObject, @unchecked Sendable, AVCaptureVideoDataOutp
     /// Bumped on every start/stop so a pending restart from an older run does nothing.
     private var runToken = 0
     private var restartAttempt = 0
+    /// Capture 1080p instead of 720p (the 1080p output format); the session falls back when unsupported.
+    private var fullHD = false
     private var observers: [NSObjectProtocol] = []
 
     /// Set once before the first `start` (see the invariant above).
@@ -140,7 +142,7 @@ final class CameraCapture: NSObject, @unchecked Sendable, AVCaptureVideoDataOutp
     private func configure(_ newInput: AVCaptureDeviceInput) throws {
         session.beginConfiguration()
         defer { session.commitConfiguration() }
-        session.sessionPreset = session.canSetSessionPreset(.hd1280x720) ? .hd1280x720 : .high
+        applyPreset()
 
         let old = input
         if let old { session.removeInput(old) }
@@ -157,6 +159,27 @@ final class CameraCapture: NSObject, @unchecked Sendable, AVCaptureVideoDataOutp
             output.setSampleBufferDelegate(self, queue: queue)
             guard session.canAddOutput(output) else { throw CameraError.cannotAddOutput }
             session.addOutput(output)
+        }
+    }
+
+    private func applyPreset() {
+        let wanted: AVCaptureSession.Preset = fullHD ? .hd1920x1080 : .hd1280x720
+        session.sessionPreset = session.canSetSessionPreset(wanted) ? wanted
+            : session.canSetSessionPreset(.hd1280x720) ? .hd1280x720 : .high
+    }
+
+    /// Switches between 720p and 1080p capture; a running session is reconfigured in place.
+    /// Ordered with `start`/`stop` on the capture queue; returns immediately.
+    func setFullHD(_ value: Bool) {
+        queue.async { [self] in
+            guard fullHD != value else { return }
+            fullHD = value
+            guard let input else { return } // applied by the next configure
+            session.beginConfiguration()
+            applyPreset()
+            session.commitConfiguration()
+            lockFrameRate(input.device) // the preset resets frame durations
+            log.info("capture preset \(value ? "1080p" : "720p", privacy: .public)")
         }
     }
 

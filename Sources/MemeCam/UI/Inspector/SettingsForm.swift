@@ -103,6 +103,33 @@ struct SettingsForm: View {
             }
 
             Section {
+                LabeledContent("Resolution") {
+                    Picker("Resolution", selection: $model.outputFormat.resolution) {
+                        ForEach(OutputResolution.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                .help("1080p is sharper in calls but uses more power; the camera itself also switches to 1080p if it can.")
+                LabeledContent("Shape") {
+                    Picker("Shape", selection: $model.outputFormat.aspect) {
+                        ForEach(OutputAspect.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                .help("16:9 fits most call apps; 4:3 is the classic webcam frame; 1:1 is for round video messages.")
+            } header: {
+                Label("Virtual Camera Output", systemImage: "video.badge.waveform")
+            } footer: {
+                Text("Call apps get \(model.outputFormat.dimensions). An app that asks for another size gets the picture cropped to fit.")
+                    .font(.callout)
+                    .foregroundStyle(Design.secondaryText)
+            }
+
+            Section {
                 Toggle("Stop camera when Mac locks", isOn: $model.stopCameraWhenLocked)
             } header: {
                 Label("Camera", systemImage: "web.camera")
@@ -214,6 +241,20 @@ private struct UpdatesSection: View {
             Text("Updates come from GitHub Releases, are verified against MemeCam's signature and Apple notarization, then installed and relaunched.")
                 .font(.callout)
                 .foregroundStyle(Design.secondaryText)
+        }
+    }
+}
+
+extension OutputResolution {
+    var title: String { self == .hd720 ? "720p" : "1080p" }
+}
+
+extension OutputAspect {
+    var title: String {
+        switch self {
+        case .wide: "16:9"
+        case .standard: "4:3"
+        case .square: "1:1"
         }
     }
 }

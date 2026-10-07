@@ -3,8 +3,6 @@ import Foundation
 
 /// Shared constants. Keep in sync with `VirtualCameraIDs` in the app (Sources/MemeCam/VirtualCamera).
 enum Config {
-    static let width: Int32 = 1280
-    static let height: Int32 = 720
     static let fps: Int32 = 30
     static let frameDuration = CMTime(value: 1, timescale: fps)
     /// Device UID seen by CMIO clients (kCMIODevicePropertyDeviceUID). The app looks the device up by it.

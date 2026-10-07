@@ -46,7 +46,7 @@ struct LanguageSection: View {
             .onChange(of: selection) { _, new in new.apply() }
             if selection != AppLanguage.atLaunch {
                 LabeledContent {
-                    Button("Restart", action: relaunch)
+                    Button("Restart") { AppRelaunch.relaunch() }
                 } label: {
                     Text("Restart MemeCam to apply")
                         .foregroundStyle(Design.secondaryText)
@@ -55,25 +55,5 @@ struct LanguageSection: View {
         } header: {
             Label("Language", systemImage: "globe")
         }
-    }
-
-    /// Quits, and a detached helper reopens this bundle once this process is gone, so two instances never
-    /// run side by side (they would fight over the camera, hotkeys and the virtual-camera sink).
-    private func relaunch() {
-        let p = Process()
-        p.executableURL = URL(filePath: "/bin/sh")
-        p.arguments = Relaunch.launcherArguments(pid: ProcessInfo.processInfo.processIdentifier,
-                                                 appPath: Bundle.main.bundleURL.path)
-        p.standardInput = FileHandle.nullDevice
-        p.standardOutput = FileHandle.nullDevice
-        p.standardError = FileHandle.nullDevice
-        do {
-            try p.run()
-            p.waitUntilExit() // returns at once: the launcher only forks the helper
-        } catch {
-            return
-        }
-        guard p.terminationStatus == 0 else { return }
-        NSApp.terminate(nil)
     }
 }

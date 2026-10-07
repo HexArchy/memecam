@@ -61,11 +61,11 @@ BIN_DIR="$(swift build --package-path "$ROOT" -c release --arch arm64 --show-bin
 step "Compiling camera extension"
 SDK="$(xcrun --sdk macosx --show-sdk-path)"
 mkdir -p "$EXT_EXE_DIR"
-# main.swift holds top-level code, so no -parse-as-library.
+# main.swift holds top-level code, so no -parse-as-library. OutputFormat.swift is shared with the app.
 swiftc -O -wmo -swift-version 6 \
   -target "arm64-apple-macos$MIN_MACOS" -sdk "$SDK" \
   -module-name MemeCamCameraExtension \
-  "$ROOT"/CameraExtension/*.swift \
+  "$ROOT"/CameraExtension/*.swift "$ROOT"/Sources/MemeCamCore/OutputFormat.swift \
   -o "$EXT_EXE_DIR/$EXT_ID"
 
 # ---------------------------------------------------------------------------------------------

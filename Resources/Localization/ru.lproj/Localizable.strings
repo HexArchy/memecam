@@ -453,3 +453,11 @@
 "“%@” is too large for a meme (over 50 MB or 100 megapixels)." = "«%@» слишком большой для мема (больше 50 МБ или 100 мегапикселей).";
 "“%@” isn't an image or GIF MemeCam can use." = "«%@» — не картинка и не GIF, которые понимает MemeCam.";
 "⌃⌥P pauses from any app" = "⌃⌥P ставит на паузу из любого приложения";
+
+/* Virtual camera output format */
+"Virtual Camera Output" = "Выход виртуальной камеры";
+"Resolution" = "Разрешение";
+"Shape" = "Формат";
+"1080p is sharper in calls but uses more power; the camera itself also switches to 1080p if it can." = "1080p чётче в звонках, но тратит больше энергии; сама камера тоже переключится на 1080p, если умеет.";
+"16:9 fits most call apps; 4:3 is the classic webcam frame; 1:1 is for round video messages." = "16:9 подходит большинству приложений для звонков; 4:3 — классический кадр веб-камеры; 1:1 — для кружочков.";
+"Call apps get %@. An app that asks for another size gets the picture cropped to fit." = "Приложения для звонков получают %@. Если приложение просит другой размер, картинка обрезается под него.";

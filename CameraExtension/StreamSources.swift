@@ -6,32 +6,32 @@ import Security
 /// The stream that camera clients (Discord, Telegram, FaceTime...) read from.
 final class SourceStreamSource: NSObject, CMIOExtensionStreamSource, @unchecked Sendable {
     // Invariant: all stored properties are immutable after init except `stream`, set once by the owner.
-    private let format: CMIOExtensionStreamFormat
+    let formats: [CMIOExtensionStreamFormat]
     private unowned let owner: DeviceSource
     private(set) var stream: CMIOExtensionStream!
 
-    init(format: CMIOExtensionStreamFormat, owner: DeviceSource) {
-        self.format = format
+    init(formats: [CMIOExtensionStreamFormat], owner: DeviceSource) {
+        self.formats = formats
         self.owner = owner
         super.init()
         stream = CMIOExtensionStream(localizedName: "MemeCam Video", streamID: Config.sourceStreamID,
                                      direction: .source, clockType: .hostTime, source: self)
     }
 
-    var formats: [CMIOExtensionStreamFormat] { [format] }
-
     var availableProperties: Set<CMIOExtensionProperty> { [.streamActiveFormatIndex, .streamFrameDuration] }
 
     func streamProperties(forProperties properties: Set<CMIOExtensionProperty>) throws
         -> CMIOExtensionStreamProperties {
         let result = CMIOExtensionStreamProperties(dictionary: [:])
-        if properties.contains(.streamActiveFormatIndex) { result.activeFormatIndex = 0 }
+        if properties.contains(.streamActiveFormatIndex) { result.activeFormatIndex = owner.activeFormatIndex }
         if properties.contains(.streamFrameDuration) { result.frameDuration = Config.frameDuration }
         return result
     }
 
-    // Single fixed format and frame rate: nothing to change.
-    func setStreamProperties(_ streamProperties: CMIOExtensionStreamProperties) throws {}
+    // A client picks a size/aspect; the frame rate is fixed.
+    func setStreamProperties(_ streamProperties: CMIOExtensionStreamProperties) throws {
+        if let index = streamProperties.activeFormatIndex { owner.clientSelectedFormat(index: index) }
+    }
 
     func authorizedToStartStream(for client: CMIOExtensionClient) -> Bool { true }
 
@@ -41,22 +41,20 @@ final class SourceStreamSource: NSObject, CMIOExtensionStreamSource, @unchecked 
 
 /// The stream the MemeCam app writes composited frames into (app-side direction 0).
 final class SinkStreamSource: NSObject, CMIOExtensionStreamSource, @unchecked Sendable {
-    private let format: CMIOExtensionStreamFormat
+    let formats: [CMIOExtensionStreamFormat]
     private unowned let owner: DeviceSource
     private(set) var stream: CMIOExtensionStream!
     // Written by authorizedToStartStream and read by startStream; CMIO calls both on its client queue.
     private let pendingClient = NSLock()
     private var client: CMIOExtensionClient?
 
-    init(format: CMIOExtensionStreamFormat, owner: DeviceSource) {
-        self.format = format
+    init(formats: [CMIOExtensionStreamFormat], owner: DeviceSource) {
+        self.formats = formats
         self.owner = owner
         super.init()
         stream = CMIOExtensionStream(localizedName: "MemeCam Sink", streamID: Config.sinkStreamID,
                                      direction: .sink, clockType: .hostTime, source: self)
     }
-
-    var formats: [CMIOExtensionStreamFormat] { [format] }
 
     var availableProperties: Set<CMIOExtensionProperty> {
         [.streamActiveFormatIndex, .streamFrameDuration, .streamSinkBufferQueueSize,

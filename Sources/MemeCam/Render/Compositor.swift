@@ -45,6 +45,8 @@ struct CompositorInput {
     var awayPresence: Double = 0
     var awayAppearing = true
     var awayStyle: PopStyle = .pop
+    /// Output size and aspect (the virtual camera and the preview).
+    var format: OutputFormat = .default
 }
 
 extension PopStyle {
@@ -57,13 +59,19 @@ extension PopStyle {
     }
 }
 
-/// Renders the final 1280×720 BGRA frame that the preview and the virtual camera share.
+/// Renders the final BGRA frame that the preview and the virtual camera share, at the chosen
+/// `OutputFormat`. Layouts are composed on a 720-px-high design canvas (16:9, 4:3 or 1:1) and scaled to
+/// the output size in the same render pass, so 1080p costs no extra pass and samples sources at full size.
 /// GPU-only path: CIContext on Metal, IOSurface-backed pool buffers, no CPU copies.
+///
+/// `@unchecked Sendable`: `render` is only called from one queue at a time (the capture queue, or the
+/// dev preview renderer); the caches below are confined to that caller.
 final class Compositor: @unchecked Sendable {
-    static let size = CGSize(width: 1280, height: 720)
+    /// Design canvas of the default format (dev renderers).
+    static let size = CGSize(width: OutputFormat.default.designWidth, height: OutputFormat.designHeight)
 
     private let context: CIContext
-    private var pool: CVPixelBufferPool?
+    private var pool: (format: OutputFormat, pool: CVPixelBufferPool)?
     private var captionCache: (String, CIImage)?
     /// The "Be right back" card, rendered on first use.
     private var awayCard: CIImage?
@@ -77,23 +85,32 @@ final class Compositor: @unchecked Sendable {
         } else {
             context = CIContext(options: [.cacheIntermediates: false])
         }
+    }
+
+    /// Buffer pool for the output size; recreated when the format changes (old buffers drain on their own).
+    private func pool(for format: OutputFormat) -> CVPixelBufferPool? {
+        if let pool, pool.format == format { return pool.pool }
         let attrs: [CFString: Any] = [
             kCVPixelBufferPixelFormatTypeKey: kCVPixelFormatType_32BGRA,
-            kCVPixelBufferWidthKey: Int(Self.size.width),
-            kCVPixelBufferHeightKey: Int(Self.size.height),
+            kCVPixelBufferWidthKey: format.width,
+            kCVPixelBufferHeightKey: format.height,
             kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
             kCVPixelBufferMetalCompatibilityKey: true,
         ]
+        var made: CVPixelBufferPool?
         CVPixelBufferPoolCreate(nil, [kCVPixelBufferPoolMinimumBufferCountKey: 4] as CFDictionary,
-                                attrs as CFDictionary, &pool)
+                                attrs as CFDictionary, &made)
+        pool = made.map { (format, $0) }
+        return made
     }
 
     func render(_ input: CompositorInput) -> CVPixelBuffer? {
-        guard let pool else { return nil }
+        let format = input.format
+        guard let pool = pool(for: format) else { return nil }
         var out: CVPixelBuffer?
         guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &out) == kCVReturnSuccess, let out else { return nil }
 
-        let canvas = CGRect(origin: .zero, size: Self.size)
+        let canvas = CGRect(x: 0, y: 0, width: format.designWidth, height: OutputFormat.designHeight)
         let background = CIImage(color: CIColor(red: 0.08, green: 0.08, blue: 0.1)).cropped(to: canvas)
         var cam = input.camera
         if input.mirror, let c = cam {
@@ -122,7 +139,10 @@ final class Compositor: @unchecked Sendable {
 
         let final = input.awayPresence > 0 ? composeAway(over: image, cameraOnly: cameraOnly, input, canvas: canvas)
                                            : image
-        context.render(final, to: out, bounds: canvas, colorSpace: colorSpace)
+        let scale = format.scale
+        let scaled = scale == 1 ? final : final.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        context.render(scaled, to: out, bounds: CGRect(x: 0, y: 0, width: format.width, height: format.height),
+                       colorSpace: colorSpace)
         return out
     }
 

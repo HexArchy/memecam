@@ -37,6 +37,13 @@ final class AppModel {
     var cooldown: Double = 4 { didSet { persistAndPush() } }
     /// How memes pop up in quiet mode. Falls back to `.fade` while macOS "Reduce motion" is on.
     var popStyle: PopStyle = .pop { didSet { persistAndPush() } }
+    /// Virtual camera size and aspect (720p/1080p × 16:9, 4:3, 1:1).
+    var outputFormat: OutputFormat = .default {
+        didSet {
+            persistAndPush()
+            virtualCamera.outputFormat = outputFormat
+        }
+    }
     /// "Nobody here" for this long → the "Be right back" card until a face shows up again.
     var awayDelay: AwayDelay = .default { didSet { persistAndPush() } }
     /// The camera the user picked (nil = system default). It is a preference, not the device in use: when it
@@ -248,6 +255,14 @@ final class AppModel {
             }
         }
         virtualCamera.sink.setConsumerHandler { [weak self] active in self?.consumerChanged(active) }
+        virtualCamera.onDeviceLostAfterReplace = { [weak self] in
+            guard let self, !isGuidedSessionRunning else { return }
+            AppRelaunch.relaunch(resume: .init(camera: wantsCamera, testPattern: virtualCamera.testPattern))
+        }
+        if let resume = AppRelaunch.takeResume() {
+            if resume.camera { start() }
+            if resume.testPattern { virtualCamera.testPattern = true }
+        }
         refreshCameras()
         virtualCamera.refresh()
         updater.start()
@@ -369,7 +384,7 @@ final class AppModel {
                          detectExpressions: detectExpressions, quietMode: quietMode, popDuration: popDuration,
                          paused: memesPaused, disabledReactions: disabledReactions, cooldown: cooldown,
                          popStyle: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? .fade : popStyle,
-                         awayAfter: awayDelay.seconds)
+                         awayAfter: awayDelay.seconds, outputFormat: outputFormat)
     }
 
     // MARK: Camera lifecycle
@@ -623,6 +638,8 @@ final class AppModel {
         defaults.set(cooldown, forKey: "cooldown")
         defaults.set(popStyle.rawValue, forKey: "popStyle")
         defaults.set(awayDelay.rawValue, forKey: "awayDelay")
+        defaults.set(outputFormat.resolution.rawValue, forKey: "outputResolution")
+        defaults.set(outputFormat.aspect.rawValue, forKey: "outputAspect")
         defaults.set(selectedCameraID, forKey: "cameraID")
         defaults.set(stopCameraWhenLocked, forKey: "stopCameraWhenLocked")
     }
@@ -645,6 +662,9 @@ final class AppModel {
         if defaults.object(forKey: "awayDelay") != nil, let v = AwayDelay(rawValue: defaults.integer(forKey: "awayDelay")) {
             awayDelay = v
         }
+        outputFormat = OutputFormat(
+            resolution: defaults.string(forKey: "outputResolution").flatMap(OutputResolution.init) ?? .hd720,
+            aspect: defaults.string(forKey: "outputAspect").flatMap(OutputAspect.init) ?? .wide)
         selectedCameraID = defaults.string(forKey: "cameraID")
         preferredCameraName = defaults.string(forKey: "cameraName")
         if defaults.object(forKey: "stopCameraWhenLocked") != nil { stopCameraWhenLocked = defaults.bool(forKey: "stopCameraWhenLocked") }

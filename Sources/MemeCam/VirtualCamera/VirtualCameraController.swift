@@ -81,6 +81,10 @@ final class VirtualCameraController {
     @ObservationIgnored private var healthWatchers = 0
 
     @ObservationIgnored private var replaceRequested = false
+    /// Called when the replaced extension is running but this process can't see its device (measured on
+    /// macOS 26.6: CMIO drops the device from the requesting process' list and never adds the new one
+    /// back, while every other process sees it). Only a fresh process recovers; AppModel relaunches.
+    @ObservationIgnored var onDeviceLostAfterReplace: (@MainActor () -> Void)?
     /// Waits for the virtual camera to be idle before replacing the extension after an app update.
     @ObservationIgnored private var deferredReplace: Task<Void, Never>?
     @ObservationIgnored private let log = Logger(subsystem: "com.hexarch.memecam", category: "virtual-camera")
@@ -101,6 +105,11 @@ final class VirtualCameraController {
 
     var isInApplicationsFolder: Bool {
         Bundle.main.bundleURL.standardizedFileURL.path.hasPrefix("/Applications/")
+    }
+
+    /// Size and aspect of the test card; follows the app's output format.
+    var outputFormat: OutputFormat = .default {
+        didSet { if oldValue != outputFormat { testPatternSource.setFormat(outputFormat) } }
     }
 
     init() {
@@ -208,6 +217,7 @@ final class VirtualCameraController {
             extensionInfo = .enabled
             activateHandler = nil
             sink.checkNow()
+            if replaceRequested { verifyDeviceAfterReplace() }
         case .willCompleteAfterReboot:
             installOutcome = .failed(String(localized: "Restart your Mac to finish installing the MemeCam virtual camera."))
             activateHandler = nil
@@ -265,14 +275,13 @@ final class VirtualCameraController {
     }
 
     /// Replacing the extension removes the "MemeCam" device for a moment, which would cut the video of a
-    /// call in progress. So wait until no process runs the device and retry every 30 s until then.
-    /// MemeCam's own sink feed also counts as running; it disconnects 2 s after the camera stops, so
-    /// with the camera on the replacement waits for the camera to stop (or the next launch).
+    /// call in progress. So wait until no other app reads the camera and retry every 30 s until then.
+    /// (Extensions before 1.1.2 don't publish a client count; then MemeCam's own feed counts too.)
     private func replaceExtensionWhenIdle() {
         guard deferredReplace == nil else { return }
         deferredReplace = Task { [weak self, sink, log] in
             while !Task.isCancelled {
-                if await !sink.isDeviceRunningSomewhere() {
+                if await !sink.isDeviceInUseByOtherApps() {
                     self?.performDeferredReplace()
                     return
                 }
@@ -288,6 +297,15 @@ final class VirtualCameraController {
         replaceRequested = true
         log.notice("replacing the camera extension with the bundled build")
         install()
+    }
+
+    private func verifyDeviceAfterReplace() {
+        Task { [weak self, sink, log] in
+            try? await Task.sleep(for: .seconds(5))
+            guard await !sink.isDevicePresent() else { return }
+            log.notice("camera device not visible after the extension update; relaunching")
+            self?.onDeviceLostAfterReplace?()
+        }
     }
 
     private func recompute() {

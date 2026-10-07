@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The 16:9 output preview, framed like a screen. Overlays: reaction chip (top-left),
+/// The output preview (16:9, 4:3 or 1:1 like the virtual camera), framed like a screen. Overlays: reaction chip (top-left),
 /// camera issue banner (top), empty / error state when the camera isn't running.
 struct PreviewStage: View {
     @Environment(AppModel.self) private var model
@@ -26,7 +26,7 @@ struct PreviewStage: View {
                     .transition(.opacity)
             }
         }
-        .aspectRatio(16.0 / 9.0, contentMode: .fit)
+        .aspectRatio(Double(model.outputFormat.width) / Double(model.outputFormat.height), contentMode: .fit)
         .overlay(alignment: .topLeading) {
             if running, issue == nil, model.status.guided == nil {
                 ReactionChip(reaction: model.status.reaction, confidence: model.status.confidence,

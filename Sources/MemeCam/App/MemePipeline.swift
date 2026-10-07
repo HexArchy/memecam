@@ -27,6 +27,8 @@ struct PipelineSettings: Sendable, Equatable {
     var popStyle: PopStyle = .pop
     /// Seconds of "nobody here" before the "Be right back" card; nil = off.
     var awayAfter: TimeInterval? = AwayDelay.default.seconds
+    /// Virtual camera / preview size and aspect.
+    var outputFormat: OutputFormat = .default
 }
 
 /// What the UI needs to know, published at most ~10×/s.
@@ -272,6 +274,7 @@ final class MemePipeline: Sendable {
     func removeSink(_ sink: any FrameSink) { sinksLock.withLock { $0.removeAll { $0.sink === sink } } }
 
     func update(_ settings: PipelineSettings) {
+        camera.setFullHD(settings.outputFormat.resolution == .hd1080)
         state.withLock { s in
             let animalsChanged = s.settings.animals != settings.animals
             let resumed = s.settings.paused && !settings.paused
@@ -376,7 +379,8 @@ final class MemePipeline: Sendable {
                 quietMode: s.settings.quietMode,
                 awayPresence: awayPresence,
                 awayAppearing: s.away.isAway,
-                awayStyle: awayStyle)
+                awayStyle: awayStyle,
+                format: s.settings.outputFormat)
         }
         guard let out = compositor.render(input) else { return }
         let time = CMSampleBufferGetPresentationTimeStamp(sample)

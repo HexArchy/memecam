@@ -2,6 +2,7 @@ import AppKit
 import CoreImage
 import CoreImage.CIFilterBuiltins
 import CoreVideo
+import MemeCamCore
 import Metal
 
 /// Animated test card for the virtual camera (colour bars, "MemeCam test", a running clock and a sweeping
@@ -29,7 +30,7 @@ final class TestPatternSource: @unchecked Sendable {
         f.dateFormat = "HH:mm:ss"
         return f
     }()
-    private let size = Compositor.size
+    private var size = CGSize(width: OutputFormat.default.width, height: OutputFormat.default.height)
     private let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
 
     init(title: String, output: @escaping @Sendable (CVPixelBuffer) -> Void) {
@@ -45,6 +46,19 @@ final class TestPatternSource: @unchecked Sendable {
             t.setEventHandler { [weak self] in self?.renderFrame() }
             t.resume()
             timer = t
+        }
+    }
+
+    /// Renders at the output format's size from the next frame on (the extension expects that size).
+    func setFormat(_ format: OutputFormat) {
+        queue.async { [self] in
+            let new = CGSize(width: format.width, height: format.height)
+            guard new != size else { return }
+            size = new
+            pool = nil
+            context = nil // setUp() rebuilds the pool and background at the new size
+            background = nil
+            clock = nil
         }
     }
 

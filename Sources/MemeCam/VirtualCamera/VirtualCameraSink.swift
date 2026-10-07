@@ -128,14 +128,24 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
         }
     }
 
-    /// Whether some process has the MemeCam device running (another app reading it, or our own sink feed).
-    /// False when the device is missing. Talks to the CMIO server, so it hops to `io`.
-    func isDeviceRunningSomewhere() async -> Bool {
+    /// Whether another app reads the MemeCam camera (a call in progress). Uses the extension's client count
+    /// when it publishes one, so MemeCam's own sink feed (camera or test card) doesn't count; older
+    /// extensions fall back to "the device runs somewhere", which includes our own feed. False when the
+    /// device is missing. Talks to the CMIO server, so it hops to `io`.
+    func isDeviceInUseByOtherApps() async -> Bool {
         await withCheckedContinuation { continuation in
             io.async {
-                let running = CMIO.findVirtualCamera().flatMap(CMIO.isRunningSomewhere) ?? false
-                continuation.resume(returning: running)
+                guard let device = CMIO.findVirtualCamera() else { return continuation.resume(returning: false) }
+                let inUse = CMIO.sourceClients(device).map { $0 > 0 } ?? CMIO.isRunningSomewhere(device)
+                continuation.resume(returning: inUse ?? false)
             }
+        }
+    }
+
+    /// Whether this process currently sees the MemeCam device (asks the CMIO server, on `io`).
+    func isDevicePresent() async -> Bool {
+        await withCheckedContinuation { continuation in
+            io.async { continuation.resume(returning: CMIO.findVirtualCamera() != nil) }
         }
     }
 
@@ -237,6 +247,10 @@ final class VirtualCameraSink: FrameSink, @unchecked Sendable {
         guard force || now &- lastPresenceCheckNanos >= 2_000_000_000 else { return }
         lastPresenceCheckNanos = now
         let found = CMIO.findVirtualCamera()
+        if (found ?? 0) != presentDevice {
+            let all = CMIO.devices.map { "\($0):\(CMIO.string(of: $0, kCMIOObjectPropertyName) ?? "?")" }.joined(separator: ",")
+            log.notice("virtual camera device \(found.map { "present (\($0))" } ?? "missing", privacy: .public) [\(all, privacy: .public)]")
+        }
         devicePresent = found != nil
         presentDevice = found ?? 0
         if stream != 0 && found != device {
