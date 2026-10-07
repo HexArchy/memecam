@@ -6,6 +6,12 @@ struct AppCommands: Commands {
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
+        CommandGroup(after: .appInfo) {
+            Button("Check for Updates\u{2026}") {
+                openWindow(id: "main")
+                Task { await model.updater.check(userInitiated: true) }
+            }
+        }
         CommandMenu("Camera") {
             Button(model.cameraState == .running ? "Stop Camera" : "Start Camera") { model.toggle() }
                 .keyboardShortcut("r")

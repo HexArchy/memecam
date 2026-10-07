@@ -74,12 +74,16 @@ public struct HandPose: Sendable, Equatable, Codable {
     /// nothing downstream can normalise the hand. Estimate it behind the knuckle line: the
     /// palm is roughly as long as the knuckles are wide, on the side away from the fingers.
     public func withEstimatedWrist() -> HandPose {
-        guard joints[.wrist] == nil, let index = joints[.indexMCP], let little = joints[.littleMCP],
+        // The little knuckle is often missing too (peace sign: 52/58 hands), so fall back to the
+        // ring knuckle, which spans ~2/3 of the knuckle line.
+        guard joints[.wrist] == nil, let index = joints[.indexMCP],
+              let (little, span) = joints[.littleMCP].map({ ($0, 1.0) }) ?? joints[.ringMCP].map({ ($0, 1.5) }),
               let middle = joints[.middleMCP] ?? joints[.ringMCP] else { return self }
         let knuckles = CGPoint(x: little.x - index.x, y: little.y - index.y)
-        let width = hypot(knuckles.x, knuckles.y)
-        guard width > 1e-4 else { return self }
-        var n = CGPoint(x: -knuckles.y / width, y: knuckles.x / width)   // unit normal
+        let width = hypot(knuckles.x, knuckles.y) * span
+        guard width > 1e-4, hypot(knuckles.x, knuckles.y) > 1e-4 else { return self }
+        let len = hypot(knuckles.x, knuckles.y)
+        var n = CGPoint(x: -knuckles.y / len, y: knuckles.x / len)   // unit normal
         let fingers = [HandJoint.indexPIP, .middlePIP, .ringPIP, .littlePIP, .indexTip, .middleTip]
             .compactMap { joints[$0] }
         if !fingers.isEmpty {

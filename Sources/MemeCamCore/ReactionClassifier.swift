@@ -66,6 +66,8 @@ public struct ReactionClassifier: Sendable {
     /// Last face box, kept briefly so a hand covering the face still reads as facepalm.
     private var lastFaceBox: CGRect?
     private var lastFaceTime: TimeInterval = -.infinity
+    private var lastHands: [HandPose] = []
+    private var lastHandsTime: TimeInterval = -.infinity
 
     public init(config: Config = Config(), handModel: HandGestureModel? = nil) {
         self.config = config
@@ -98,18 +100,27 @@ public struct ReactionClassifier: Sendable {
         let faceBox = frame.face?.boundingBox
             ?? (frame.timestamp - lastFaceTime < 1.0 ? lastFaceBox : nil)
 
-        if config.enableGestures, let g = classifyGestures(frame.hands, faceBox: faceBox) {
+        // Vision drops hands that overlap the face (thinking, facepalm) for several frames at a
+        // time — recorded: a chin hand was seen in only 20% of frames. Hold the last hands briefly.
+        var hands = frame.hands
+        if hands.isEmpty, frame.timestamp - lastHandsTime < 0.4 {
+            hands = lastHands
+        } else if !hands.isEmpty {
+            lastHands = hands
+            lastHandsTime = frame.timestamp
+        }
+        if config.enableGestures, let g = classifyGestures(hands, faceBox: faceBox) {
             return ReactionEstimate(reaction: g.0, confidence: g.1, metrics: metrics)
         }
         guard let face = frame.face, let metrics, let raw else {
-            return ReactionEstimate(reaction: frame.hands.isEmpty ? .noFace : .neutral, confidence: 1)
+            return ReactionEstimate(reaction: hands.isEmpty ? .noFace : .neutral, confidence: 1)
         }
         guard config.enableExpressions else {
             return ReactionEstimate(reaction: .neutral, confidence: 1, metrics: metrics)
         }
 
         let headTurned = abs(face.yaw) > config.maxHeadTurn || abs(face.pitch) > config.maxHeadTurn
-        if collecting, frame.hands.isEmpty, !headTurned {
+        if collecting, hands.isEmpty, !headTurned {
             collectCalibrationSample(raw)
         }
         if headTurned {
@@ -120,7 +131,7 @@ public struct ReactionClassifier: Sendable {
         let browsReliable = abs(face.yaw) <= config.maxHeadTurnForBrows && abs(face.pitch) <= config.maxHeadTurnForBrows
         let estimate = classifyExpression(metrics, browsReliable: browsReliable)
         lastExpression = estimate.reaction
-        if estimate.reaction == .neutral, frame.hands.isEmpty, !collecting {
+        if estimate.reaction == .neutral, hands.isEmpty, !collecting {
             // Track slow drift (lighting, posture) without chasing expressions.
             let roll = baseline.rollDegrees
             baseline = baseline.blended(toward: metrics, alpha: calibration == .manual ? 0.002 : 0.01)
@@ -156,7 +167,7 @@ public struct ReactionClassifier: Sendable {
         /// Confident model label (p ≥ 0.8), if any.
         var label: HandGestureModel.Label? { model.flatMap { $0.probability >= 0.8 ? $0.label : nil } }
         var isOpen: Bool { label.map { $0 == .openPalm } ?? (shape.extendedCount >= 4) }
-        var isHeartHalf: Bool { label.map { $0 == .heartHalf } ?? shape.looksLikeHalfHeart }
+        var isHeartHalf: Bool { model != nil ? label == .heartHalf : shape.looksLikeHalfHeart }
 
         /// Single-hand gesture: the learned model decides when it is confident (p ≥ 0.8);
         /// otherwise the geometric rules decide, exactly as without a model.
@@ -168,10 +179,16 @@ public struct ReactionClassifier: Sendable {
 
     private func classifyGestures(_ hands: [HandPose], faceBox: CGRect?) -> (Reaction, Double)? {
         // Ignore tiny "hands" (background clutter, far-away people) and low-confidence ones.
-        let minPalm = faceBox.map { Double($0.height) * 0.25 } ?? 0.06
-        let seen = hands.filter { $0.confidence >= 0.5 }.map { $0.withEstimatedWrist() }.compactMap { h -> SeenHand? in
+        // Recorded: hands angled toward the lens project palms as short as 0.07 face heights
+        // (chin rest). Confidence and joint-count filters already reject clutter.
+        let minPalm = faceBox.map { Double($0.height) * 0.05 } ?? 0.03
+        let seen = hands.filter { $0.confidence >= 0.5 }.compactMap { raw -> SeenHand? in
+            let h = raw.withEstimatedWrist()
             guard let shape = HandShape(h), shape.palmSize >= minPalm else { return nil }
-            return SeenHand(pose: h, shape: shape, model: handModel?.predict(h))
+            // The model was trained on real wrists; with a guessed wrist its features are off and
+            // it answers confidently wrong (recorded on peace signs), so leave those to the rules.
+            let wristSeen = raw[.wrist] != nil
+            return SeenHand(pose: h, shape: shape, model: wristSeen ? handModel?.predict(h) : nil)
         }
         guard !seen.isEmpty else { return nil }
 
@@ -204,9 +221,10 @@ public struct ReactionClassifier: Sendable {
                 // Open-ish hand over the upper face (eyes/forehead) => facepalm. A fist held in
                 // front of the face is not a facepalm.
                 let openish = h.label.map { $0 == .openPalm || $0 == .none } ?? (h.shape.extendedCount >= 2)
-                if openish, coverage > 0.06,
-                   face.insetBy(dx: face.width * 0.1, dy: 0).contains(h.pose.center),
-                   h.pose.center.y > face.minY + face.height * 0.4 {
+                // Recorded facepalm hands: centred (|dx| ≈ 0.08), centre at ≈0.40 face heights.
+                let fdx = abs(h.pose.center.x - face.midX) / face.width
+                if openish, coverage > 0.06, fdx < 0.35,
+                   h.pose.center.y > face.minY + face.height * 0.2 {
                     return (.facepalm, min(1, 0.5 + Double(coverage) * 2))
                 }
                 // Hand resting under the chin => thinking (fist, finger or flat hand). Measured:
@@ -240,6 +258,8 @@ public struct ReactionClassifier: Sendable {
         public var open = 0.0, smile = 0.0, eyesClosed = 0.0, brows = 0.0, sad = 0.0, tilt = 0.0
         /// FACS AU1 (inner brow raiser) and AU4 (brow lowerer) intensities, 1 = threshold.
         public var au1 = 0.0, au4 = 0.0
+        /// AU15 lip-corner depressor alone (1 = threshold).
+        public var corners = 0.0
     }
 
     public func scores(_ m: FaceMetrics) -> ExpressionScores {
@@ -250,13 +270,14 @@ public struct ReactionClassifier: Sendable {
         var s = ExpressionScores()
         s.open = (m.mouthOpen - b.mouthOpen) / (0.25 * k)
         s.smile = max((widthRatio - 1) / (0.14 * k), (m.cornerLift - b.cornerLift) / (0.06 * k))
-        s.eyesClosed = (1 - eyeRatio) / (0.55 * min(k, 1.4))
+        s.eyesClosed = (1 - eyeRatio) / (0.30 * min(k, 1.4))
         s.brows = (m.browRaise - b.browRaise) / (0.075 * k)
         s.au1 = (m.innerBrowRaise - b.innerBrowRaise) / (0.05 * k)
         s.au4 = (1 - m.browGap / max(b.browGap, 1e-3)) / (0.10 * k)
         // Sadness = lip-corner depressor (AU15) with AU1 or AU4 — corners alone are too often
         // just a resting mouth or talking. A very strong AU15 alone still counts.
         let corners = -(m.cornerLift - b.cornerLift) / (0.055 * k)
+        s.corners = corners
         let browSupport = max(s.au1, s.au4)
         s.sad = corners >= 1 && browSupport >= 0.6 ? (corners + browSupport) / 2
             : corners >= 1.8 ? corners * 0.75 : 0
@@ -270,8 +291,14 @@ public struct ReactionClassifier: Sendable {
         var candidates: [(Reaction, Double)] = []
         // Smiling widens the mouth, which lowers the (height / width) open ratio — so a laugh
         // needs only 70% of the open threshold when the smile is clear.
-        let laughing = s.smile >= 1 && s.open >= 0.7
-        if laughing {
+        // Surprise (FACS AU1+AU2+AU26): raised brows with a dropped jaw — the mouth needn't be
+        // wide open, and a dropped jaw widens the mouth enough to look like a smile, so the
+        // brows decide. Recorded: surprise brows ≈1.3, open ≈0.6; laugh brows ≈−0.1.
+        let surprisedByBrows = s.brows >= 0.9 && s.open >= 0.4
+        let laughing = !surprisedByBrows && s.smile >= 1 && s.open >= 0.7
+        if surprisedByBrows {
+            candidates.append((.surprised, max(s.open / 0.6, s.brows)))
+        } else if laughing {
             candidates.append((.laugh, (s.open / 0.7 + s.smile) / 2))
         } else if s.open >= 1 {
             // Open mouth without a smile = surprise. Raised brows are part of surprise.
@@ -281,13 +308,13 @@ public struct ReactionClassifier: Sendable {
             candidates.append((.sad, s.smile < 0.5 ? s.sad : 0))
         }
         candidates.append((.eyesClosed, s.eyesClosed))
-        candidates.append((.eyebrowsRaised, s.open >= 1 || laughing ? 0 : s.brows))
+        candidates.append((.eyebrowsRaised, s.open >= 1 || laughing || surprisedByBrows ? 0 : s.brows))
         candidates.append((.headTilt, s.tilt))
 
         // Hysteresis: the reaction already shown needs only 80% of its threshold to stay.
         // Closed eyes beat a smile: squeezing the eyes lifts the cheeks and mouth corners.
         let best = candidates
-            .map { r, v in (r, r == .eyesClosed && v >= 1 ? v * 1.5 : v) }
+            .map { r, v in (r, r == .eyesClosed && v >= 1 && s.smile < 1 ? v * 1.5 : v) }
             .map { r, v in (r, r == lastExpression ? v * 1.25 : v) }
             .filter { $0.1 >= 1 }
             .max { $0.1 < $1.1 }

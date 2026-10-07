@@ -239,27 +239,16 @@ final class MemeLibrary: @unchecked Sendable {
         return candidates.first { FileManager.default.fileExists(atPath: $0.appending(path: "memes.json").path) }
     }
 
-    /// Closest reaction in meaning, used when a category has no memes yet.
-    private static let fallback: [Reaction: Reaction] = [
-        .laugh: .smile, .smile: .neutral,
-        .thumbsDown: .sad, .facepalm: .sad, .sad: .neutral,
-        .handsUp: .surprised, .surprised: .eyebrowsRaised,
-        .headTilt: .eyebrowsRaised, .eyebrowsRaised: .neutral,
-        .pointing: .thumbsUp, .peace: .thumbsUp, .thumbsUp: .smile,
-        .openPalm: .peace, .heart: .smile, .thinking: .eyebrowsRaised,
-        .fist: .neutral, .eyesClosed: .noFace, .noFace: .neutral,
-    ]
-
     func memes(for r: Reaction, filter: AnimalFilter = .both) -> [Meme] {
         lock.withLock { byReaction[r] ?? [] }.filter { filter.allows($0.animal) }
     }
 
     /// Picks a meme for the reaction, rotating so the same one is not repeated back-to-back.
-    /// Falls back to the other animal, then to `neutral`.
+    /// Falls back to the other animal; nil when the reaction has no memes (it is then not shown).
     func pick(for r: Reaction, filter: AnimalFilter) -> Meme? {
         var pool = memes(for: r, filter: filter)
-        if pool.isEmpty { pool = memes(for: r) }
-        if pool.isEmpty, r != .neutral { return pick(for: Self.fallback[r] ?? .neutral, filter: filter) }
+        if pool.isEmpty { pool = memes(for: r) }   // other animal rather than nothing
+        // No memes at all (the user removed them all): the reaction is effectively switched off.
         guard !pool.isEmpty else { return nil }
         lock.lock(); defer { lock.unlock() }
         let last = lastPicked[r]

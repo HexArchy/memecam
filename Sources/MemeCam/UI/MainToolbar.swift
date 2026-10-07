@@ -14,6 +14,7 @@ struct MainToolbar: ToolbarContent {
             CameraMenu()
                 .labelStyle(.titleAndIcon)
         }
+        ToolbarItem(placement: .primaryAction) { UpdateButton() }
         ToolbarItem(placement: .primaryAction) { VirtualCameraPill() }
         ToolbarItem(placement: .primaryAction) { InspectorToggle() }
     }

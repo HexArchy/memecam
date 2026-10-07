@@ -47,6 +47,8 @@ struct SettingsForm: View {
                 Label("Picture", systemImage: "rectangle.on.rectangle")
             }
 
+            UpdatesSection()
+
             AccuracySection()
 
             Section {
@@ -114,6 +116,32 @@ private struct AccuracySection: View {
             Label("Accuracy", systemImage: "scope")
         } footer: {
             Text("About 3 minutes. Each reaction: get ready, then hold it. Space pauses, → skips, ← redoes. MemeCam scores itself on your face.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct UpdatesSection: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var updater = model.updater
+        Section {
+            Toggle("Check for updates automatically", isOn: $updater.automaticChecks)
+            LabeledContent("Version \(updater.currentVersion)") {
+                Button("Check Now") { Task { await updater.check(userInitiated: true) } }
+                    .disabled(updater.state == .checking)
+            }
+            if updater.state == .upToDate {
+                Label("You're up to date", systemImage: "checkmark.seal").foregroundStyle(.secondary)
+            } else if case .failed(let message) = updater.state {
+                Text(message).font(.callout).foregroundStyle(.secondary)
+            }
+        } header: {
+            Label("Updates", systemImage: "arrow.down.circle")
+        } footer: {
+            Text("Updates come from GitHub Releases, are verified against MemeCam's signature and Apple notarization, then installed and relaunched.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }

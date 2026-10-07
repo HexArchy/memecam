@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.0.2 — 2026-10-07
+
+- **Auto-update from GitHub Releases**: checks on launch and every 6 h, verifies the download against
+  MemeCam's Team ID and Apple notarization, swaps itself in place and relaunches (also updates the camera extension).
+  *Menu › Check for Updates…*, toggle in the inspector.
+- **Calmer reactions**: only confident frames vote, a clear majority is needed to switch, memes stay ≥1.5 s.
+- **Remove all memes of a reaction to switch it off** — it is no longer replaced by a similar reaction.
+- Detection tuned on a real guided recording (macro-F1 0.67 → 0.86, 0 false switches):
+  surprise uses raised brows + dropped jaw (FACS), eyes-closed threshold matches Vision's eye contour,
+  facepalm/thinking geometry, hands briefly held when Vision loses them over the face,
+  wrist estimation for peace signs, the learned model is skipped for guessed wrists.
+
 ## v1.0.1 — 2026-10-07
 
 - Fix: MemeCam did not launch on other Macs — the app declared an App Group its Developer ID profile

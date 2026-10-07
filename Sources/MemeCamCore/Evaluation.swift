@@ -74,7 +74,7 @@ public struct Evaluator: Sendable {
 
     public func evaluate(_ recording: Recording) -> Report {
         var classifier = ReactionClassifier(config: classifierConfig, handModel: handModel)
-        var stabilizer = ReactionStabilizer(minHold: 1.2 * calmness, delayScale: calmness)
+        var stabilizer = ReactionStabilizer(minHold: 1.5 * calmness, delayScale: calmness)
 
         var tp: [Reaction: Int] = [:], fp: [Reaction: Int] = [:], fn: [Reaction: Int] = [:]
         var confusion: [String: (Reaction, Reaction, Int)] = [:]

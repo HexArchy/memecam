@@ -165,7 +165,7 @@ final class MemePipeline: @unchecked Sendable {
             s.classifier.config.enableGestures = settings.detectHands
             s.classifier.config.enableExpressions = settings.detectExpressions
             s.stabilizer.delayScale = settings.calmness
-            s.stabilizer.minHold = 1.2 * settings.calmness
+            s.stabilizer.minHold = 1.5 * settings.calmness
             if animalsChanged { s.meme = nil } // re-pick on next frame
         }
         detector.detectHands = settings.detectHands
@@ -274,11 +274,14 @@ final class MemePipeline: @unchecked Sendable {
 
     private func setReaction(_ r: Reaction, confidence: Double, now: TimeInterval, in s: inout State,
                              meme: Meme? = nil) {
+        let picked = meme ?? library.pick(for: r, filter: s.settings.animals)
+        // A reaction whose memes were all removed is switched off: keep what's on screen.
+        if picked == nil, s.meme != nil { return }
         let t = now - s.memeStart
         s.previousFrame = s.memeImage?.frame(at: t)
         s.reaction = r
         s.confidence = confidence
-        s.meme = meme ?? library.pick(for: r, filter: s.settings.animals)
+        s.meme = picked
         s.memeStart = now
         guard let meme = s.meme else { s.memeImage = nil; return }
         if let img = library.cachedImage(for: meme) {

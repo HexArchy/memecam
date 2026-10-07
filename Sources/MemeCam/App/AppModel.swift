@@ -126,6 +126,7 @@ final class AppModel {
         if let reaction, cameraState == .running { pipeline.force(reaction) } // instant preview of the new meme
     }
 
+    let updater = Updater()
     let preview = PreviewSink()
     let virtualCamera = VirtualCameraController()
     private let pipeline = MemePipeline()
@@ -152,6 +153,7 @@ final class AppModel {
         }
         refreshCameras()
         virtualCamera.refresh()
+        updater.start()
     }
 
     // MARK: Actions

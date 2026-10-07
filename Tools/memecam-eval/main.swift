@@ -47,13 +47,13 @@ for label in Reaction.allCases {
     let sc = frames.compactMap(\.1)
     if !sc.isEmpty {
         for (name, kp) in [("open", \ReactionClassifier.ExpressionScores.open), ("smile", \.smile), ("eyesCl", \.eyesClosed),
-                           ("brows", \.brows), ("sad", \.sad), ("au1", \.au1), ("au4", \.au4), ("tilt", \.tilt)] {
+                           ("brows", \.brows), ("sad", \.sad), ("corner", \.corners), ("au1", \.au1), ("au4", \.au4), ("tilt", \.tilt)] {
             print("   " + row(name, sc.map { $0[keyPath: kp] }))
         }
         let yaw = frames.compactMap { $0.0.face.map { abs($0.yaw) } }, pitch = frames.compactMap { $0.0.face.map { abs($0.pitch) } }
         print("   " + row("|yaw|", yaw) + "   " + row("|pitch|", pitch))
     }
-    let shapes = frames.flatMap { f in f.0.hands.compactMap { h in HandShape(h).map { (h, $0) } } }
+    let shapes = frames.flatMap { f in f.0.hands.map { $0.withEstimatedWrist() }.compactMap { h in HandShape(h).map { (h, $0) } } }
     if !shapes.isEmpty {
         let conf = shapes.map { $0.0.confidence }, palm = shapes.map(\.1.palmSize)
         let ext = shapes.map { Double($0.1.extendedCount) }, tv = shapes.map(\.1.thumbVertical)
@@ -105,7 +105,8 @@ if let model {
     print("\n--- with HaGRID model ---\n" + Evaluator(handModel: model).evaluate(rec).summary)
     // Raw model label distribution per gesture prompt.
     for label in Reaction.allCases where label.isGesture {
-        let preds = rec.frames.filter { $0.label == label }.flatMap(\.observation.hands).compactMap { model.predict($0) }
+        let preds = rec.frames.filter { $0.label == label }.flatMap(\.observation.hands)
+            .compactMap { model.predict($0.withEstimatedWrist()) }
         let hist = Dictionary(grouping: preds, by: { $0.probability >= 0.8 ? $0.label.rawValue : "unsure" })
             .mapValues(\.count).sorted { $0.value > $1.value }.prefix(4)
         print("  \(label.title.padding(toLength: 12, withPad: " ", startingAt: 0)) model:", hist.map { "\($0.key) \($0.value)" }.joined(separator: ", "))

@@ -115,7 +115,8 @@ private func classify(_ lm: FaceLandmarks?, hands: [HandPose] = [], _ c: inout R
                                      hand(at: CGPoint(x: 0.9, y: 0.7), extended: open)], &c) == .handsUp)
     #expect(classify(face(), hands: [hand(at: CGPoint(x: 0.5, y: 0.45), extended: open)], &c) == .facepalm)
     #expect(classify(face(), hands: [hand(at: CGPoint(x: 0.5, y: 0.0), extended: [true, false, false, false])], &c) == .thinking)
-    #expect(classify(nil, &c) == .noFace)
+    // A second later (past the 0.4 s hand hold) with nobody in frame.
+    #expect(c.classify(FrameObservation(timestamp: 1, face: nil, hands: [])).reaction == .noFace)
 }
 
 /// Feeds `r` at 30 FPS from `t0` to `t1`; returns every change the stabilizer emitted.
@@ -131,13 +132,23 @@ private func feed(_ s: inout ReactionStabilizer, _ r: Reaction, _ t0: Double, _ 
 }
 
 @Test func stabilizerDebounces() {
-    var s = ReactionStabilizer(minHold: 1)
-    #expect(feed(&s, .smile, 0, 0.5) == [.smile])
-    #expect(feed(&s, .surprised, 0.5, 0.9).isEmpty)          // still within minHold
-    #expect(feed(&s, .surprised, 0.9, 1.6) == [.surprised])
-    #expect(feed(&s, .eyesClosed, 2.6, 2.8).isEmpty)          // a blink
-    #expect(feed(&s, .surprised, 2.8, 3.5).isEmpty)
+    var s = ReactionStabilizer(minHold: 1.5)
+    #expect(feed(&s, .smile, 0, 0.8) == [.smile])
+    #expect(feed(&s, .surprised, 0.8, 1.4).isEmpty)          // still within minHold
+    #expect(feed(&s, .surprised, 1.4, 2.4) == [.surprised])
+    #expect(feed(&s, .eyesClosed, 3.0, 3.3).isEmpty)          // a blink
+    #expect(feed(&s, .surprised, 3.3, 4.0).isEmpty)
     #expect(s.current == .surprised)
+}
+
+@Test func stabilizerIgnoresUnconfidentFrames() {
+    var s = ReactionStabilizer(minHold: 0.2)
+    _ = feed(&s, .neutral, 0, 1.5)
+    // A weak smile (confidence below the bar) never takes over.
+    #expect(feed(&s, .smile, 1.5, 3.5, confidence: 0.4).isEmpty)
+    #expect(s.current == .neutral)
+    // A confident one does.
+    #expect(feed(&s, .smile, 3.5, 4.5, confidence: 0.9) == [.smile])
 }
 
 @Test func stabilizerIgnoresSingleFrameGlitches() {
@@ -355,4 +366,13 @@ private func loadModel() throws -> HandGestureModel {
         h.joints[.thumbCMC] = nil
         #expect(classify(nil, hands: [h], &c) == .fist, "model: \(model != nil)")
     }
+}
+
+@Test func versionComparison() {
+    #expect(AppVersion.isNewer("v1.0.2", than: "1.0.1"))
+    #expect(AppVersion.isNewer("1.0.10", than: "1.0.9"))
+    #expect(AppVersion.isNewer("1.1", than: "1.0.9"))
+    #expect(!AppVersion.isNewer("1.0", than: "1.0.0"))
+    #expect(!AppVersion.isNewer("1.0.1", than: "1.0.1"))
+    #expect(!AppVersion.isNewer("0.9.9", than: "1.0.0"))
 }

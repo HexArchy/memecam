@@ -105,7 +105,12 @@ public struct HandShape: Sendable, Equatable {
             if thumbVertical > 0.6 { return .thumbsUp }
             if thumbVertical < -0.6 { return .thumbsDown }
         }
-        if f[0] && f[1] && !f[2] && !f[3] { return .peace }
+        if f[0] && f[1] && !f[3] {
+            // A half-bent ring finger often passes the "extended" test (recorded: 20% of peace
+            // frames). It's still a peace sign if the ring reaches clearly less than index/middle.
+            let ringShorter = fingerReach[2] < min(fingerReach[0], fingerReach[1]) * 0.85
+            if !f[2] || ringShorter { return .peace }
+        }
         if f[0] && !f[1] && !f[2] && !f[3] { return .pointing }
         if extendedCount >= 4 { return .openPalm }
         if curledFour { return .fist }

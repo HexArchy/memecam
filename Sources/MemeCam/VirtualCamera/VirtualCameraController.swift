@@ -58,6 +58,15 @@ final class VirtualCameraController {
     @ObservationIgnored private var propertiesHandler: SystemExtensionRequestHandler?
     @ObservationIgnored private var activeObserver: (any NSObjectProtocol)?
 
+    @ObservationIgnored private var replaceRequested = false
+
+    /// CFBundleVersion of the extension embedded in this app build.
+    var bundledExtensionVersion: String? {
+        let plist = Bundle.main.bundleURL.appending(
+            path: "Contents/Library/SystemExtensions/\(VirtualCameraIDs.extensionBundleID).systemextension/Contents/Info.plist")
+        return NSDictionary(contentsOf: plist)?["CFBundleVersion"] as? String
+    }
+
     /// True when the app bundle actually carries the camera extension (signed builds from build-app.sh).
     var bundleContainsExtension: Bool {
         let url = Bundle.main.bundleURL
@@ -172,6 +181,13 @@ final class VirtualCameraController {
             let live = list.filter { !$0.isUninstalling }
             if live.contains(where: \.isEnabled) {
                 extensionInfo = .enabled
+                // After an app update the system still runs the previous extension build;
+                // re-activating replaces it (same team, no new approval needed).
+                if let bundled = bundledExtensionVersion, !replaceRequested,
+                   !live.contains(where: { $0.isEnabled && $0.bundleVersion == bundled }) {
+                    replaceRequested = true
+                    install()
+                }
             } else if live.contains(where: \.isAwaitingUserApproval) {
                 extensionInfo = .awaitingApproval
             } else {
