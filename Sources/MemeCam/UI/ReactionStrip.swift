@@ -33,6 +33,7 @@ struct ReactionStrip: View {
                             ReactionCard(reaction: reaction,
                                          thumbnail: model.memes(for: reaction).first,
                                          isLive: live == reaction,
+                                         isOff: model.disabledReactions.contains(reaction),
                                          canPreview: running)
                                 .id(reaction)
                         }
@@ -58,6 +59,7 @@ private struct ReactionCard: View {
     let reaction: Reaction
     let thumbnail: Meme?
     let isLive: Bool
+    let isOff: Bool
     let canPreview: Bool
     @State private var isDropTarget = false
 
@@ -68,6 +70,7 @@ private struct ReactionCard: View {
                     .frame(width: 62, height: 62)
                     .overlay { MemeThumbnail(url: thumbnail?.url, id: thumbnail?.id, symbol: reaction.displaySymbol) }
                     .clipShape(.rect(cornerRadius: Design.tileRadius))
+                    .reactionOff(isOff)
                     .overlay(alignment: .bottomTrailing) {
                         Image(systemName: reaction.displaySymbol)
                             .font(.caption.bold())
@@ -102,10 +105,12 @@ private struct ReactionCard: View {
             Button("Preview", systemImage: "play") { model.trigger(reaction) }
                 .disabled(!canPreview)
             Button("Edit Memes…", systemImage: "photo.on.rectangle.angled") { ui.editMemes(for: reaction) }
+            Divider()
+            ReactionSwitchMenuItem(reaction: reaction)
         }
         .help(canPreview ? "Preview \(reaction.title)" : "Edit the memes for \(reaction.title)")
         .accessibilityLabel(reaction.title)
-        .accessibilityValue(isLive ? "Current reaction" : "")
+        .accessibilityValue([isLive ? "Current reaction" : nil, isOff ? "Off" : nil].compactMap(\.self).joined(separator: ", "))
         .accessibilityHint(canPreview ? "Shows this reaction's meme for a few seconds" : "Opens the meme editor")
     }
 

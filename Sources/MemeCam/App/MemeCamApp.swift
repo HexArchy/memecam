@@ -16,7 +16,7 @@ struct MemeCamApp: App {
         .windowResizability(.contentMinSize)
         .commands { AppCommands(model: model, ui: ui) }
 
-        MenuBarExtra("MemeCam", systemImage: "face.smiling") {
+        MenuBarExtra("MemeCam", systemImage: model.memesPaused ? "pause.circle" : "face.smiling") {
             MenuBarContent()
                 .environment(model)
                 .environment(ui)

@@ -86,6 +86,7 @@ struct MemeReactionDetail: View {
                     .help("Add images or GIFs to \(reaction.title)")
             }
             .controlSize(.large)
+            EnabledSwitch(reaction: reaction)
         }
     }
 
@@ -100,6 +101,26 @@ struct MemeReactionDetail: View {
             Button("Show Custom Memes in Finder", systemImage: "folder") { model.revealUserMemesFolder() }
                 .buttonStyle(.link)
         }
+    }
+}
+
+/// Per-reaction on/off: off = still detected, but its memes never pop up.
+private struct EnabledSwitch: View {
+    @Environment(AppModel.self) private var model
+    let reaction: Reaction
+
+    var body: some View {
+        let enabled = model.isEnabled(reaction)
+        Toggle(isOn: Binding(get: { enabled }, set: { model.setEnabled(reaction, $0) })) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Pop up memes")
+                Text(enabled ? "On — shows a meme when you do this." : "Off — still detected, but nothing pops up.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .toggleStyle(.switch)
+        .help(enabled ? "Turn \(reaction.title) off" : "Turn \(reaction.title) on")
     }
 }
 

@@ -17,6 +17,12 @@ struct PipelineSettings: Sendable, Equatable {
     var quietMode = true
     /// Quiet mode: how long a meme stays up, seconds.
     var popDuration: Double = 4
+    /// Panic switch: plain camera out, detection keeps running but triggers nothing.
+    var paused = false
+    /// Reactions switched off by the user: they never pop up.
+    var disabledReactions: Set<Reaction> = []
+    /// Seconds before the same reaction may pop up again.
+    var cooldown: Double = 4
 }
 
 /// What the UI needs to know, published at most ~10×/s.
@@ -55,6 +61,7 @@ final class MemePipeline: @unchecked Sendable {
         var settings = PipelineSettings()
         var classifier = ReactionClassifier()
         var stabilizer = ReactionStabilizer()
+        var gate = ReactionGate()
         var visionBusy = false
         var reaction: Reaction = .noFace
         var confidence = 0.0
@@ -168,13 +175,17 @@ final class MemePipeline: @unchecked Sendable {
     func update(_ settings: PipelineSettings) {
         state.withLock { s in
             let animalsChanged = s.settings.animals != settings.animals
+            let resumed = s.settings.paused && !settings.paused
             s.settings = settings
+            s.gate.disabled = settings.disabledReactions
+            s.gate.cooldown = settings.cooldown
             s.classifier.config.sensitivity = settings.sensitivity
             s.classifier.config.enableGestures = settings.detectHands
             s.classifier.config.enableExpressions = settings.detectExpressions
             s.stabilizer.delayScale = settings.calmness
             s.stabilizer.minHold = 1.5 * settings.calmness
-            if animalsChanged { s.meme = nil } // re-pick on next frame
+            if animalsChanged || resumed { s.meme = nil } // re-pick on next frame
+            if settings.paused { Self.setVisible(false, now: CACurrentMediaTime(), in: &s) }
         }
         detector.detectHands = settings.detectHands
     }
@@ -191,7 +202,7 @@ final class MemePipeline: @unchecked Sendable {
         let now = CACurrentMediaTime()
         state.withLock { s in
             s.forcedUntil = now + seconds
-            setReaction(meme.reaction, confidence: 1, now: now, in: &s, meme: meme)
+            setReaction(meme.reaction, confidence: 1, now: now, in: &s, meme: meme, forced: true)
         }
     }
 
@@ -199,7 +210,7 @@ final class MemePipeline: @unchecked Sendable {
         let now = CACurrentMediaTime()
         state.withLock { s in
             s.forcedUntil = now + seconds
-            setReaction(reaction, confidence: 1, now: now, in: &s)
+            setReaction(reaction, confidence: 1, now: now, in: &s, forced: true)
         }
     }
 
@@ -228,7 +239,9 @@ final class MemePipeline: @unchecked Sendable {
                 Self.setVisible(false, now: now, in: &s)
             }
             let fade = min(1, (now - s.visibleChanged) / 0.25)
-            let presence = s.visible ? fade : 1 - fade
+            // Paused cuts the meme instantly (panic switch), no fade-out.
+            let presence = s.settings.paused ? 0 : s.visible ? fade : 1 - fade
+            if s.visible { s.gate.noteOnScreen(s.reaction, at: now) } // cooldown starts when it leaves
             let t = now - s.memeStart
             let transition = min(1, t / 0.18)
             return CompositorInput(
@@ -236,7 +249,7 @@ final class MemePipeline: @unchecked Sendable {
                 meme: presence > 0 ? s.memeImage?.frame(at: t) : nil,
                 previousMeme: transition < 1 ? s.previousFrame : nil,
                 transition: transition,
-                caption: s.guided == nil && s.settings.showCaption ? s.meme?.title : nil,
+                caption: s.guided == nil && s.settings.showCaption && !s.settings.paused ? s.meme?.title : nil,
                 layout: s.settings.layout,
                 mirror: s.settings.mirror,
                 presence: presence)
@@ -295,19 +308,21 @@ final class MemePipeline: @unchecked Sendable {
         s.visibleChanged = now
     }
 
+    /// `forced`: the user asked for it (preview) — skips the per-reaction switches and the cooldown.
     private func setReaction(_ r: Reaction, confidence: Double, now: TimeInterval, in s: inout State,
-                             meme: Meme? = nil) {
+                             meme: Meme? = nil, forced: Bool = false) {
         let quiet = s.settings.quietMode
-        if quiet, r == .neutral, meme == nil {
-            // Neutral = conversation: show nothing.
+        if s.settings.paused || (quiet && r == .neutral && meme == nil) {
+            // Paused: track the reaction, show nothing. Neutral = conversation: show nothing.
             s.reaction = r
             s.confidence = confidence
             Self.setVisible(false, now: now, in: &s)
             return
         }
-        let picked = meme ?? library.pick(for: r, filter: s.settings.animals)
+        let allowed = forced || s.gate.allows(r, at: now, current: s.visible ? s.reaction : nil)
+        let picked = allowed ? meme ?? library.pick(for: r, filter: s.settings.animals) : nil
         if picked == nil {
-            // A reaction whose memes were all removed is switched off.
+            // Switched off, cooling down, or all its memes were removed: treat as "no memes".
             if quiet {
                 s.reaction = r
                 Self.setVisible(false, now: now, in: &s)

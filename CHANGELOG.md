@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- **Pause memes** — one switch for a plain camera (detection keeps running, nothing pops up):
+  global hotkey **⌃⌥P** that works while Discord/Zoom is frontmost (no Accessibility permission),
+  toggle at the top of the menu bar extra, in the control bar and *Camera › Pause Memes*.
+  “Paused” badge on the stage and a pause icon in the menu bar.
+- **Per-reaction on/off** — a switch in the meme editor and *Turn Off / Turn On* in the reaction strip
+  and gallery context menus. Off reactions are still detected but never pop up; their cards are dimmed with an “Off” badge.
+- **Cooldown** — the same reaction can't pop up again for a few seconds after its meme went away
+  (default 4 s, 0–10 s in inspector › Picture). Neutral and “nobody here” are exempt.
+
 ## v1.0.2 — 2026-10-07
 
 - **Auto-update from GitHub Releases**: checks on launch and every 6 h, verifies the download against

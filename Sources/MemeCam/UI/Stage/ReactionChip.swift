@@ -1,10 +1,12 @@
 import MemeCamCore
 import SwiftUI
 
-/// Current reaction with a confidence meter, floating over the preview.
+/// Current reaction with a confidence meter, floating over the preview; a "Paused" badge
+/// while memes are paused (detection keeps running, nothing pops up).
 struct ReactionChip: View {
     let reaction: Reaction
     let confidence: Double
+    var paused = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -28,15 +30,33 @@ struct ReactionChip: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            if paused {
+                PausedBadge()
+                    .transition(.opacity.combined(with: .scale(0.8)))
+            }
         }
         .padding(.leading, 7)
         .padding(.trailing, 18)
         .padding(.vertical, 7)
         .glassSurface(in: .capsule)
         .animation(reduceMotion ? nil : .snappy, value: reaction)
+        .animation(reduceMotion ? nil : .snappy, value: paused)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Current reaction: \(reaction.title)")
+        .accessibilityLabel(paused ? "Memes paused. Current reaction: \(reaction.title)"
+                                   : "Current reaction: \(reaction.title)")
         .accessibilityValue("Confidence \(Int(confidence * 100)) percent")
+    }
+}
+
+private struct PausedBadge: View {
+    var body: some View {
+        Label("Paused", systemImage: "pause.fill")
+            .font(.callout.bold())
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.orange, in: .capsule)
+            .help("Memes are paused — the camera goes out plain. \u{2303}\u{2325}P resumes.")
     }
 }
 

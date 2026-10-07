@@ -50,7 +50,8 @@ private struct MemeReactionGrid: View {
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(reactions) { reaction in
                     ReactionTile(reaction: reaction, memes: model.allMemes(for: reaction),
-                                 isLive: model.cameraState == .running && model.status.reaction == reaction)
+                                 isLive: model.cameraState == .running && model.status.reaction == reaction,
+                                 isOff: model.disabledReactions.contains(reaction))
                 }
             }
         }
@@ -63,6 +64,7 @@ private struct ReactionTile: View {
     let reaction: Reaction
     let memes: [Meme]
     let isLive: Bool
+    let isOff: Bool
     @State private var isDropTarget = false
 
     var body: some View {
@@ -73,6 +75,7 @@ private struct ReactionTile: View {
                     .aspectRatio(1, contentMode: .fit)
                     .overlay { MemeThumbnail(url: memes.first?.url, id: memes.first?.id, symbol: reaction.displaySymbol) }
                     .clipShape(.rect(cornerRadius: Design.tileRadius))
+                    .reactionOff(isOff)
                     .overlay(alignment: .topTrailing) {
                         Text(memes.count, format: .number)
                             .font(.caption.bold().monospacedDigit())
@@ -107,9 +110,13 @@ private struct ReactionTile: View {
             model.addMemes(images, to: reaction)
             return true
         } isTargeted: { isDropTarget = $0 }
+        .contextMenu {
+            Button("Edit Memes…", systemImage: "photo.on.rectangle.angled") { ui.editingReaction = reaction }
+            ReactionSwitchMenuItem(reaction: reaction)
+        }
         .help("Edit the memes for \(reaction.title)")
         .accessibilityLabel(reaction.title)
-        .accessibilityValue("\(memes.count) memes")
+        .accessibilityValue(isOff ? "Off, \(memes.count) memes" : "\(memes.count) memes")
         .accessibilityHint("Opens the memes for this reaction")
     }
 }

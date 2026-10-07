@@ -27,6 +27,12 @@ final class AppModel {
     var quietMode = true { didSet { persistAndPush() } }
     /// Quiet mode: seconds a meme stays up.
     var popDuration: Double = 4 { didSet { persistAndPush() } }
+    /// Panic switch (⌃⌥P anywhere): plain camera out, no memes.
+    var memesPaused = false { didSet { persistAndPush() } }
+    /// Reactions switched off by the user: still detected, never pop up.
+    var disabledReactions: Set<Reaction> = [] { didSet { persistAndPush() } }
+    /// Seconds before the same reaction may pop up again.
+    var cooldown: Double = 4 { didSet { persistAndPush() } }
     var selectedCameraID: String? { didSet { persistAndPush(); if oldValue != selectedCameraID { restartIfRunning() } } }
 
     // MARK: Live state (read-only for UI)
@@ -135,6 +141,7 @@ final class AppModel {
     let virtualCamera = VirtualCameraController()
     private let pipeline = MemePipeline()
     private let defaults = UserDefaults.standard
+    private let hotKeys = GlobalHotKeys()
     private var loading = true
 
     init() {
@@ -158,6 +165,7 @@ final class AppModel {
         refreshCameras()
         virtualCamera.refresh()
         updater.start()
+        hotKeys.register(.pauseMemes) { [weak self] in self?.togglePause() }
     }
 
     // MARK: Actions
@@ -183,6 +191,14 @@ final class AppModel {
     }
 
     func toggle() { cameraState == .running ? stop() : start() }
+
+    func togglePause() { memesPaused.toggle() }
+
+    func isEnabled(_ reaction: Reaction) -> Bool { !disabledReactions.contains(reaction) }
+
+    func setEnabled(_ reaction: Reaction, _ enabled: Bool) {
+        if enabled { disabledReactions.remove(reaction) } else { disabledReactions.insert(reaction) }
+    }
 
     /// Use the current face as "neutral" — makes expression detection personal.
     func calibrate() {
@@ -210,7 +226,8 @@ final class AppModel {
     private var settings: PipelineSettings {
         PipelineSettings(layout: layout, animals: animals, sensitivity: sensitivity, calmness: calmness,
                          showCaption: showCaption, mirror: mirror, detectHands: detectHands,
-                         detectExpressions: detectExpressions, quietMode: quietMode, popDuration: popDuration)
+                         detectExpressions: detectExpressions, quietMode: quietMode, popDuration: popDuration,
+                         paused: memesPaused, disabledReactions: disabledReactions, cooldown: cooldown)
     }
 
     private func restartIfRunning() {
@@ -231,6 +248,9 @@ final class AppModel {
         defaults.set(detectExpressions, forKey: "detectExpressions")
         defaults.set(quietMode, forKey: "quietMode")
         defaults.set(popDuration, forKey: "popDuration")
+        defaults.set(memesPaused, forKey: "memesPaused")
+        defaults.set(disabledReactions.map(\.rawValue).sorted(), forKey: "disabledReactions")
+        defaults.set(cooldown, forKey: "cooldown")
         defaults.set(selectedCameraID, forKey: "cameraID")
     }
 
@@ -245,6 +265,9 @@ final class AppModel {
         if defaults.object(forKey: "detectExpressions") != nil { detectExpressions = defaults.bool(forKey: "detectExpressions") }
         if defaults.object(forKey: "quietMode") != nil { quietMode = defaults.bool(forKey: "quietMode") }
         if defaults.object(forKey: "popDuration") != nil { popDuration = defaults.double(forKey: "popDuration") }
+        memesPaused = defaults.bool(forKey: "memesPaused")
+        if let v = defaults.stringArray(forKey: "disabledReactions") { disabledReactions = Set(v.compactMap(Reaction.init)) }
+        if defaults.object(forKey: "cooldown") != nil { cooldown = defaults.double(forKey: "cooldown") }
         selectedCameraID = defaults.string(forKey: "cameraID")
     }
 }

@@ -35,6 +35,7 @@ drag MemeCam to **Applications** (required for the virtual camera) and open it.
 | Shortcut | Action |
 |---|---|
 | ⌘R | Start / stop camera |
+| ⌃⌥P | Pause / resume memes (global, works in any app) |
 | ⌘K | Calibrate neutral face |
 | ⌘1 ⌘2 ⌘3 | Side by side · Picture in picture · Meme only |
 | ⌘I | Inspector |

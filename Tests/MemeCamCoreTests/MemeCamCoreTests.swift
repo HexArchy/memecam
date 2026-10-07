@@ -376,3 +376,35 @@ private func loadModel() throws -> HandGestureModel {
     #expect(!AppVersion.isNewer("1.0.1", than: "1.0.1"))
     #expect(!AppVersion.isNewer("0.9.9", than: "1.0.0"))
 }
+
+// MARK: - Reaction gate (per-reaction switches + cooldown)
+
+@Test func gateBlocksDisabledReactions() {
+    let gate = ReactionGate(disabled: [.thumbsUp], cooldown: 0)
+    #expect(!gate.allows(.thumbsUp, at: 0))
+    #expect(gate.allows(.smile, at: 0))
+}
+
+@Test func gateCooldownCountsFromLastFrameOnScreen() {
+    var gate = ReactionGate(cooldown: 4)
+    #expect(gate.allows(.smile, at: 0))
+    for t in stride(from: 0.0, through: 3, by: 0.1) { gate.noteOnScreen(.smile, at: t) }
+    #expect(!gate.allows(.smile, at: 5))       // left the screen at 3 s
+    #expect(gate.allows(.smile, at: 7.01))
+    #expect(gate.allows(.laugh, at: 5))        // other reactions are unaffected
+    #expect(gate.allows(.smile, at: 5, current: .smile)) // re-pick of the current reaction
+}
+
+@Test func gateCooldownExemptsNeutralAndNobody() {
+    var gate = ReactionGate(cooldown: 10)
+    gate.noteOnScreen(.neutral, at: 0)
+    gate.noteOnScreen(.noFace, at: 0)
+    #expect(gate.allows(.neutral, at: 1))
+    #expect(gate.allows(.noFace, at: 1))
+}
+
+@Test func gateZeroCooldownAllowsImmediateRepeat() {
+    var gate = ReactionGate(cooldown: 0)
+    gate.noteOnScreen(.peace, at: 2)
+    #expect(gate.allows(.peace, at: 2))
+}

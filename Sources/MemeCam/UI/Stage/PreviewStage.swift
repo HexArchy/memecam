@@ -29,7 +29,8 @@ struct PreviewStage: View {
         .aspectRatio(16.0 / 9.0, contentMode: .fit)
         .overlay(alignment: .topLeading) {
             if running, issue == nil, model.status.guided == nil {
-                ReactionChip(reaction: model.status.reaction, confidence: model.status.confidence)
+                ReactionChip(reaction: model.status.reaction, confidence: model.status.confidence,
+                             paused: model.memesPaused)
                     .padding(14)
                     .transition(.opacity.combined(with: .scale(0.95, anchor: .topLeading)))
             }

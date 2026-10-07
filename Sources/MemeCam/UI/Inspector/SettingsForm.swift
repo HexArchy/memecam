@@ -52,6 +52,14 @@ struct SettingsForm: View {
                         }
                     }
                 }
+                LabeledContent("Cooldown") {
+                    HStack {
+                        Slider(value: $model.cooldown, in: 0...10, step: 1) { Text("Cooldown") }
+                            .labelsHidden()
+                        Text("\(Int(model.cooldown)) s").monospacedDigit().foregroundStyle(.secondary)
+                    }
+                }
+                .help("The same reaction can't pop up again for this long after its meme went away.")
                 Toggle("Mirror camera", isOn: $model.mirror)
                 Toggle("Show reaction caption", isOn: $model.showCaption)
             } header: {

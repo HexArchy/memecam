@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Liquid Glass control capsule below the stage: Stop (while running), layout, animals, calibrate.
+/// Liquid Glass control capsule below the stage: Stop (while running), pause memes, layout, animals, calibrate.
 /// Starting happens from the stage's empty state, so there is exactly one Start button.
 struct ControlBar: View {
     @Environment(AppModel.self) private var model
@@ -14,6 +14,7 @@ struct ControlBar: View {
                     StopButton()
                         .transition(.opacity.combined(with: .scale(0.9)))
                 }
+                PauseButton()
                 ViewThatFits(in: .horizontal) {
                     OptionsCapsule(compact: false)
                     OptionsCapsule(compact: true)
@@ -38,6 +39,27 @@ private struct StopButton: View {
         .controlSize(.extraLarge)
         .help("Stop camera (\u{2318}R)")
         .accessibilityLabel("Stop camera")
+    }
+}
+
+/// Panic switch: plain camera out while paused (also ⌃⌥P from any app).
+private struct PauseButton: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let paused = model.memesPaused
+        Button { model.togglePause() } label: {
+            Label(paused ? "Resume" : "Pause", systemImage: paused ? "play.fill" : "pause.fill")
+                .font(.headline)
+                .frame(minWidth: 72)
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .glassButtonStyle(prominent: paused)
+        .tint(paused ? .orange : nil)
+        .controlSize(.extraLarge)
+        .help(paused ? "Resume memes (\u{2303}\u{2325}P, works in any app)"
+                     : "Pause memes — camera only (\u{2303}\u{2325}P, works in any app)")
+        .accessibilityLabel(paused ? "Resume memes" : "Pause memes")
     }
 }
 
