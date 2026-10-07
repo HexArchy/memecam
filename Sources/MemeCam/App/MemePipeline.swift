@@ -13,6 +13,10 @@ struct PipelineSettings: Sendable, Equatable {
     var mirror = true
     var detectHands = true
     var detectExpressions = true
+    /// Quiet mode: nothing is shown while neutral; memes pop up on a reaction and hide again.
+    var quietMode = true
+    /// Quiet mode: how long a meme stays up, seconds.
+    var popDuration: Double = 4
 }
 
 /// What the UI needs to know, published at most ~10×/s.
@@ -60,6 +64,10 @@ final class MemePipeline: @unchecked Sendable {
         var previousFrame: CGImage?
         var memeStart: TimeInterval = 0
         var forcedUntil: TimeInterval = 0
+        /// Whether the meme is on screen (quiet mode hides it), and when that last changed.
+        var visible = false
+        var visibleChanged: TimeInterval = 0
+        var shownAt: TimeInterval = 0
         var calibrateNext = false
         var guided: GuidedSession?
         var inferenceMs = 0.0
@@ -212,17 +220,26 @@ final class MemePipeline: @unchecked Sendable {
             darkFeed = darkSince.map { now - $0 > 2.5 } ?? false
         }
         let input: CompositorInput = state.withLock { s in
-            if s.meme == nil { setReaction(s.reaction, confidence: s.confidence, now: now, in: &s) }
+            if s.meme == nil, !s.settings.quietMode { setReaction(s.reaction, confidence: s.confidence, now: now, in: &s) }
+            // Quiet mode: a meme pops up for `popDuration`, then the camera has the stage again
+            // ("nobody here" stays while the person is away).
+            if s.settings.quietMode, s.visible, s.reaction != .noFace, now >= s.forcedUntil,
+               now - s.shownAt > s.settings.popDuration {
+                Self.setVisible(false, now: now, in: &s)
+            }
+            let fade = min(1, (now - s.visibleChanged) / 0.25)
+            let presence = s.visible ? fade : 1 - fade
             let t = now - s.memeStart
             let transition = min(1, t / 0.18)
             return CompositorInput(
                 camera: cameraImage,
-                meme: s.memeImage?.frame(at: t),
+                meme: presence > 0 ? s.memeImage?.frame(at: t) : nil,
                 previousMeme: transition < 1 ? s.previousFrame : nil,
                 transition: transition,
                 caption: s.guided == nil && s.settings.showCaption ? s.meme?.title : nil,
                 layout: s.settings.layout,
-                mirror: s.settings.mirror)
+                mirror: s.settings.mirror,
+                presence: presence)
         }
         guard let out = compositor.render(input) else { return }
         let time = CMSampleBufferGetPresentationTimeStamp(sample)
@@ -272,11 +289,34 @@ final class MemePipeline: @unchecked Sendable {
         }
     }
 
+    private static func setVisible(_ v: Bool, now: TimeInterval, in s: inout State) {
+        guard s.visible != v else { return }
+        s.visible = v
+        s.visibleChanged = now
+    }
+
     private func setReaction(_ r: Reaction, confidence: Double, now: TimeInterval, in s: inout State,
                              meme: Meme? = nil) {
+        let quiet = s.settings.quietMode
+        if quiet, r == .neutral, meme == nil {
+            // Neutral = conversation: show nothing.
+            s.reaction = r
+            s.confidence = confidence
+            Self.setVisible(false, now: now, in: &s)
+            return
+        }
         let picked = meme ?? library.pick(for: r, filter: s.settings.animals)
-        // A reaction whose memes were all removed is switched off: keep what's on screen.
-        if picked == nil, s.meme != nil { return }
+        if picked == nil {
+            // A reaction whose memes were all removed is switched off.
+            if quiet {
+                s.reaction = r
+                Self.setVisible(false, now: now, in: &s)
+                return
+            }
+            if s.meme != nil { return }   // keep what's on screen
+        }
+        Self.setVisible(picked != nil, now: now, in: &s)
+        s.shownAt = now
         let t = now - s.memeStart
         s.previousFrame = s.memeImage?.frame(at: t)
         s.reaction = r

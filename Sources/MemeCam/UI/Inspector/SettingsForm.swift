@@ -41,6 +41,17 @@ struct SettingsForm: View {
             }
 
             Section {
+                Toggle("Quiet mode", isOn: $model.quietMode)
+                    .help("Nothing on screen while you look neutral — memes pop up on a reaction, then hide.")
+                if model.quietMode {
+                    LabeledContent("Meme stays") {
+                        HStack {
+                            Slider(value: $model.popDuration, in: 2...10, step: 1) { Text("Meme stays") }
+                                .labelsHidden()
+                            Text("\(Int(model.popDuration)) s").monospacedDigit().foregroundStyle(.secondary)
+                        }
+                    }
+                }
                 Toggle("Mirror camera", isOn: $model.mirror)
                 Toggle("Show reaction caption", isOn: $model.showCaption)
             } header: {

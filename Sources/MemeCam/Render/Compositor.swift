@@ -33,6 +33,8 @@ struct CompositorInput {
     var caption: String?
     var layout: OutputLayout = .sideBySide
     var mirror = true
+    /// 0 = camera only (full frame), 1 = the layout with the meme; in between = crossfade.
+    var presence: Double = 1
 }
 
 /// Renders the final 1280×720 BGRA frame that the preview and the virtual camera share.
@@ -68,13 +70,37 @@ final class Compositor: @unchecked Sendable {
         guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &out) == kCVReturnSuccess, let out else { return nil }
 
         let canvas = CGRect(origin: .zero, size: Self.size)
-        var image = CIImage(color: CIColor(red: 0.08, green: 0.08, blue: 0.1)).cropped(to: canvas)
-
+        let background = CIImage(color: CIColor(red: 0.08, green: 0.08, blue: 0.1)).cropped(to: canvas)
         var cam = input.camera
         if input.mirror, let c = cam {
             // fill() re-normalises the extent origin, so a bare flip is enough.
             cam = c.transformed(by: CGAffineTransform(scaleX: -1, y: 1))
         }
+        let cameraOnly = cam.map { fill($0, in: canvas).composited(over: background) } ?? background
+
+        let image: CIImage
+        if input.presence <= 0 || input.meme == nil {
+            image = cameraOnly
+        } else {
+            let withMeme = composeLayout(input, camera: cam, canvas: canvas, background: background)
+            if input.presence >= 1 {
+                image = withMeme
+            } else {
+                let f = CIFilter.dissolveTransition()
+                f.inputImage = cameraOnly
+                f.targetImage = withMeme
+                f.time = Float(input.presence)
+                image = f.outputImage?.cropped(to: canvas) ?? withMeme
+            }
+        }
+
+        context.render(image, to: out, bounds: canvas, colorSpace: colorSpace)
+        return out
+    }
+
+    private func composeLayout(_ input: CompositorInput, camera cam: CIImage?, canvas: CGRect,
+                               background: CIImage) -> CIImage {
+        var image = background
         let meme = memeImage(input)
 
         switch input.layout {
@@ -102,9 +128,7 @@ final class Compositor: @unchecked Sendable {
         if let caption = input.caption, !caption.isEmpty {
             image = captionImage(caption, canvas: canvas, layout: input.layout).composited(over: image)
         }
-
-        context.render(image, to: out, bounds: canvas, colorSpace: colorSpace)
-        return out
+        return image
     }
 
     /// Mean brightness 0...1 of an image (GPU reduction to 1 px). Used to detect black cameras.

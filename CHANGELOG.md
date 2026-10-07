@@ -5,6 +5,8 @@
 - **Auto-update from GitHub Releases**: checks on launch and every 6 h, verifies the download against
   MemeCam's Team ID and Apple notarization, swaps itself in place and relaunches (also updates the camera extension).
   *Menu › Check for Updates…*, toggle in the inspector.
+- **Quiet mode** (default): nothing on screen while you look neutral — memes pop up on a confident
+  reaction and hide after a few seconds (2–10 s, inspector › Picture). Smooth crossfade to full-frame camera.
 - **Calmer reactions**: only confident frames vote, a clear majority is needed to switch, memes stay ≥1.5 s.
 - **Remove all memes of a reaction to switch it off** — it is no longer replaced by a similar reaction.
 - Detection tuned on a real guided recording (macro-F1 0.67 → 0.86, 0 false switches):

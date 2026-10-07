@@ -23,6 +23,10 @@ final class AppModel {
     var mirror = true { didSet { persistAndPush() } }
     var detectHands = true { didSet { persistAndPush() } }
     var detectExpressions = true { didSet { persistAndPush() } }
+    /// Memes only pop up on reactions; nothing while neutral.
+    var quietMode = true { didSet { persistAndPush() } }
+    /// Quiet mode: seconds a meme stays up.
+    var popDuration: Double = 4 { didSet { persistAndPush() } }
     var selectedCameraID: String? { didSet { persistAndPush(); if oldValue != selectedCameraID { restartIfRunning() } } }
 
     // MARK: Live state (read-only for UI)
@@ -206,7 +210,7 @@ final class AppModel {
     private var settings: PipelineSettings {
         PipelineSettings(layout: layout, animals: animals, sensitivity: sensitivity, calmness: calmness,
                          showCaption: showCaption, mirror: mirror, detectHands: detectHands,
-                         detectExpressions: detectExpressions)
+                         detectExpressions: detectExpressions, quietMode: quietMode, popDuration: popDuration)
     }
 
     private func restartIfRunning() {
@@ -225,6 +229,8 @@ final class AppModel {
         defaults.set(mirror, forKey: "mirror")
         defaults.set(detectHands, forKey: "detectHands")
         defaults.set(detectExpressions, forKey: "detectExpressions")
+        defaults.set(quietMode, forKey: "quietMode")
+        defaults.set(popDuration, forKey: "popDuration")
         defaults.set(selectedCameraID, forKey: "cameraID")
     }
 
@@ -237,6 +243,8 @@ final class AppModel {
         if defaults.object(forKey: "mirror") != nil { mirror = defaults.bool(forKey: "mirror") }
         if defaults.object(forKey: "detectHands") != nil { detectHands = defaults.bool(forKey: "detectHands") }
         if defaults.object(forKey: "detectExpressions") != nil { detectExpressions = defaults.bool(forKey: "detectExpressions") }
+        if defaults.object(forKey: "quietMode") != nil { quietMode = defaults.bool(forKey: "quietMode") }
+        if defaults.object(forKey: "popDuration") != nil { popDuration = defaults.double(forKey: "popDuration") }
         selectedCameraID = defaults.string(forKey: "cameraID")
     }
 }
