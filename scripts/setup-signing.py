@@ -266,8 +266,16 @@ def main():
         i = args.index("--revoke")
         revoke_serial = args[i + 1]
         del args[i:i + 2]
-    env_path = pathlib.Path(args[0] if args else
-                            "~/Workspace/vps/porovnu/secrets/appstoreconnect.env").expanduser()
+    if args:
+        env_path = pathlib.Path(args[0]).expanduser()
+        OUT.mkdir(mode=0o700, exist_ok=True)
+        (OUT / "config").write_text(f"ASC_ENV={env_path}\n")  # remembered for later runs
+    else:
+        cfg = OUT / "config"
+        m = re.search(r"^ASC_ENV=(.+)$", cfg.read_text(), re.M) if cfg.exists() else None
+        if not m:
+            sys.exit("usage: setup-signing.py path/to/appstoreconnect.env  (remembered in ~/.memecam-signing/config)")
+        env_path = pathlib.Path(m.group(1).strip()).expanduser()
     env = load_env(env_path)
     key_id, issuer, team = env.get("ASC_KEY_ID"), env.get("ASC_ISSUER_ID"), env.get("APPLE_TEAM_ID")
     if not (key_id and issuer and team):

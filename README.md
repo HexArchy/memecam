@@ -76,7 +76,7 @@ The camera extension needs the System Extension capability (paid Apple Developer
 certificate, profiles — into `~/.memecam-signing/` (never into the repo):
 
 ```sh
-uv run --script scripts/setup-signing.py                    # Apple Development (this Mac)
+uv run --script scripts/setup-signing.py path/to/asc.env    # Apple Development (this Mac); path is remembered
 uv run --script scripts/setup-signing.py --distribution     # Developer ID (Account Holder CSR flow)
 scripts/build-app.sh --release                              # notarized + stapled build/MemeCam.dmg
 ```
@@ -114,5 +114,5 @@ Gesture model training: [`Tools/gesture-training/`](Tools/gesture-training/READM
 
 ## Credits & licensing
 
-Private project, all rights reserved. Third-party material — memes from Tenor (© their owners), the HaGRID v2
+© 2026 Nikita Belyakov. All rights reserved. Third-party material — memes from Tenor (© their owners), the HaGRID v2
 dataset licence (non-commercial) and others — is listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

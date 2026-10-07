@@ -6,7 +6,7 @@
 #   --run      open the app afterwards (the installed copy when --install is given)
 #   --release  Developer ID signing (~/.memecam-signing/release.env, from setup-signing.py
 #              --distribution), then build/MemeCam.dmg, notarize it with the ASC API key from
-#              the given env file (default ~/Workspace/vps/porovnu/secrets/appstoreconnect.env)
+#              the given env file (default: ASC_ENV from ~/.memecam-signing/config)
 #              and staple the ticket. The DMG then opens on any Mac.
 #
 # Signing material comes from `uv run --script scripts/setup-signing.py` and lives in
@@ -32,7 +32,9 @@ INSTALL_PATH="/Applications/MemeCam.app"
 INSTALL=0
 RUN=0
 RELEASE=0
-ASC_ENV="$HOME/Workspace/vps/porovnu/secrets/appstoreconnect.env"
+# Path to an App Store Connect API env file (ASC_KEY_ID, ASC_ISSUER_ID, APPLE_TEAM_ID, ASC_KEY_PATH);
+# kept outside the repo in ~/.memecam-signing/config.
+ASC_ENV="$(grep -E '^ASC_ENV=' "$HOME/.memecam-signing/config" 2>/dev/null | cut -d= -f2-)"
 for arg in "$@"; do
   case "$arg" in
     --install) INSTALL=1 ;;

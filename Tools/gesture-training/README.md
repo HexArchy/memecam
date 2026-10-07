@@ -18,8 +18,8 @@ mkdir -p $D/raw && cd $D/raw
 curl -LO https://rndml-team-cv.obs.ru-moscow-1.hc.sbercloud.ru/datasets/hagrid_v2/annotations_with_landmarks/annotations.zip  # ~720 MB, no images
 unzip -q annotations.zip -x '*.ipynb_checkpoints*'
 
-T=/Users/hexarch/Workspace/projects/memecam/Tools/gesture-training
-M=/Users/hexarch/Workspace/projects/memecam/Resources/Models
+T=$(git rev-parse --show-toplevel)/Tools/gesture-training
+M=$(git rev-parse --show-toplevel)/Resources/Models
 cd $T
 uv run --no-project --with numpy python -I extract_hagrid.py $D/raw/annotations $D/hagrid_hands_raw.npz   # ~1.3M hands, ~200 MB
 uv run --no-project --with numpy python -I build_dataset.py  $D/hagrid_hands_raw.npz $D/hagrid_gestures_dataset.npz
