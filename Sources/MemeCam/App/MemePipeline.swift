@@ -23,6 +23,8 @@ struct PipelineSettings: Sendable, Equatable {
     var disabledReactions: Set<Reaction> = []
     /// Seconds before the same reaction may pop up again.
     var cooldown: Double = 4
+    /// How memes appear in quiet mode (already `.fade` when the system asks to reduce motion).
+    var popStyle: PopStyle = .pop
 }
 
 /// What the UI needs to know, published at most ~10×/s.
@@ -314,9 +316,11 @@ final class MemePipeline: Sendable {
                now - s.shownAt > s.settings.popDuration {
                 Self.setVisible(false, now: now, in: &s)
             }
-            let fade = min(1, (now - s.visibleChanged) / 0.25)
+            // Quiet mode animates the pop-up in the chosen style; otherwise appearing is a plain crossfade.
+            let style = s.settings.quietMode ? s.settings.popStyle : .fade
+            let phase = min(1, (now - s.visibleChanged) / PopAnimation.duration(style, appearing: s.visible))
             // Paused cuts the meme instantly (panic switch), no fade-out.
-            let presence = s.settings.paused ? 0 : s.visible ? fade : 1 - fade
+            let presence = s.settings.paused ? 0 : s.visible ? phase : 1 - phase
             if s.visible { s.gate.noteOnScreen(s.reaction, at: now) } // cooldown starts when it leaves
             let t = now - s.memeStart
             let transition = min(1, t / 0.18)
@@ -328,7 +332,10 @@ final class MemePipeline: Sendable {
                 caption: s.guided == nil && s.settings.showCaption && !s.settings.paused ? s.meme?.title : nil,
                 layout: s.settings.layout,
                 mirror: s.settings.mirror,
-                presence: presence)
+                presence: presence,
+                appearing: s.visible,
+                popStyle: style,
+                quietMode: s.settings.quietMode)
         }
         guard let out = compositor.render(input) else { return }
         let time = CMSampleBufferGetPresentationTimeStamp(sample)

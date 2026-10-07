@@ -1,6 +1,15 @@
 import SwiftUI
 
 @main
+enum Launcher {
+    static func main() {
+        #if DEBUG
+        PopPreviewRenderer.runIfRequested() // dev tool: renders pop-up frames and exits
+        #endif
+        MemeCamApp.main()
+    }
+}
+
 struct MemeCamApp: App {
     @State private var model = AppModel()
     @State private var ui = UIState()

@@ -1,3 +1,4 @@
+import MemeCamCore
 import SwiftUI
 
 /// Settings that have no other home in the window. The camera is chosen in the toolbar,
@@ -5,6 +6,7 @@ import SwiftUI
 struct SettingsForm: View {
     @Environment(AppModel.self) private var model
     @AppStorage("debugExpanded") private var debugExpanded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         @Bindable var model = model
@@ -51,6 +53,17 @@ struct SettingsForm: View {
                             Text("\(Int(model.popDuration)) s").monospacedDigit().foregroundStyle(.secondary)
                         }
                     }
+                    LabeledContent("Pop-up style") {
+                        Picker("Pop-up style", selection: $model.popStyle) {
+                            ForEach(PopStyle.allCases) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .disabled(reduceMotion)
+                    }
+                    .help(reduceMotion
+                          ? "Reduce Motion is on in System Settings, so memes fade in and out."
+                          : "Pop: a sticker that springs in. Slide: glides in from the nearest edge. Fade: crossfade.")
                 }
                 LabeledContent("Cooldown") {
                     HStack {

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Sticker-style pop-ups** — in quiet mode the camera now stays full-frame and the meme floats over it as a
+  card: *Pop* (default) springs in like a sticker with a white outline and soft shadow, *Slide* glides in from
+  the nearest edge, *Fade* keeps the old crossfade. Pick it in inspector › Picture › *Pop-up style*;
+  with macOS *Reduce motion* on, memes always fade.
 - **Pause memes** — one switch for a plain camera (detection keeps running, nothing pops up):
   global hotkey **⌃⌥P** that works while Discord/Zoom is frontmost (no Accessibility permission),
   toggle at the top of the menu bar extra, in the control bar and *Camera › Pause Memes*.
